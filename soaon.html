@@ -1615,6 +1615,457 @@ ROOMS.bridge = {
 };
 
 /* ================================================================
+   DATA: 아이템 — 2막 기관실
+================================================================ */
+ITEMS.label = {
+  name:'운송 작업 지시서', desc:'방금 위조... 아니, "현장 발행"한 배송 라벨. 수취물: 인증 키 조각. 배송지: 안진의 손. 발송인: 안진. 완벽한 서류다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.gold; c.lineWidth=2; c.shadowColor=P.gold; c.shadowBlur=6;
+    c.strokeRect(-10,-12,20,24); c.fillStyle=P.gold;
+    for(let i=0;i<5;i++) c.fillRect(-7+i*3,-8,1.5,8);
+    c.beginPath(); c.moveTo(-7,4); c.lineTo(7,4); c.moveTo(-7,8); c.lineTo(3,8); c.stroke(); }); },
+};
+ITEMS.screwdriver = {
+  name:'드라이버', desc:'십자 드라이버. 우주 시대에도 나사는 십자다. 전통이란 그런 것이다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.cyan; c.lineWidth=3; c.shadowColor=P.cyan; c.shadowBlur=6;
+    c.beginPath(); c.moveTo(-11,11); c.lineTo(2,-2); c.stroke();
+    c.lineWidth=5; c.beginPath(); c.moveTo(2,-2); c.lineTo(10,-10); c.stroke(); }); },
+};
+ITEMS.tape = {
+  name:'절연 테이프', desc:'공학의 반은 테이프다. 나머지 반은 "일단 껐다 켜보기"다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.dim; c.lineWidth=3; c.shadowColor=P.dim; c.shadowBlur=5;
+    c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.stroke(); c.beginPath(); c.arc(0,0,4,0,Math.PI*2); c.stroke();
+    c.beginPath(); c.moveTo(10,0); c.lineTo(15,3); c.stroke(); }); },
+};
+ITEMS.mod_kit = {
+  name:'정밀 개조 키트', desc:'회로 개조용 정밀 부품 세트. "자격 있는 기술자만 사용할 것". 자격은... 상황이 만들어 주겠지.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.violet; c.lineWidth=2.5; c.shadowColor=P.violet; c.shadowBlur=7;
+    c.strokeRect(-11,-8,22,16); c.beginPath();
+    c.moveTo(-6,-8); c.lineTo(-6,8); c.moveTo(2,-8); c.lineTo(2,8); c.stroke();
+    c.fillStyle=P.violet; c.fillRect(-4,-3,4,6); c.fillRect(5,-5,4,4); }); },
+};
+ITEMS.key_eng = {
+  name:'인증 키 조각 — 기관', desc:'붉은 태그가 붙은 육각 금속 조각. "코어 인증 1/3". 클로드가 만지지 말라던 바로 그것. 손이 아주 약간 떨린다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.red; c.lineWidth=2.5; c.shadowColor=P.red; c.shadowBlur=9;
+    c.beginPath(); for(let i=0;i<6;i++){ const a=i*Math.PI/3; const x=Math.cos(a)*10,y=Math.sin(a)*10; i?c.lineTo(x,y):c.moveTo(x,y);} c.closePath(); c.stroke();
+    c.fillStyle=P.red; c.font='bold 10px sans-serif'; c.textAlign='center'; c.fillText('1',0,4); }); },
+};
+onCombine('tape','manual', ()=>say('규정집을 테이프로 보강했다. 이제 물에도 강하고, 눈물에도 강하다.'));
+onCombine('coffee','tape', ()=>say('컵 입구를 테이프로 봉했다. 생태계 보존 조치 완료. 유네스코가 알아주겠지.'));
+
+/* ================================================================
+   DATA: 대화/이벤트 — 2막 기관실
+================================================================ */
+// 밸브 퍼즐 (P7): 목표 v1=4, v2=2, v3=4
+function valveVal(n){ return G.flags['v'+n]||0; }
+async function checkValves(){
+  if(flag('p7_done')) return;
+  if(valveVal(1)===4 && valveVal(2)===2 && valveVal(3)===4){
+    setFlag('p7_done'); sfx('goal');
+    await sayQueue([
+      ['시스템','쿠구구— 냉각수가 배관을 타고 도는 소리가 벽 전체에서 울린다.'],
+      ['클로드','순환 계통 복구 확인. ...정확하시군요. 택배기사 맞습니까?'],
+      ['안진','명절 연휴의 물류 센터에서 살아남은 사람한테 밸브 세 개는 밸브 세 개일 뿐이죠.'],
+      ['클로드','다만 보조 발전기가 아직 죽어 있습니다. 순환 펌프를 돌리려면 연료 셀이 필요합니다.'],
+    ]);
+    addGoal('g_fuel','보조 발전기에 넣을 연료 셀을 찾는다');
+    addScan('냉각 순환 조건 충족 (4-2-4). 남은 문제: 보조 발전기 연료 셀');
+  }
+}
+// 발전기 완성 (P8) — 진상 조각 2
+async function engComplete(){
+  take('fuel_cell'); setFlag('p8_done'); sfx('goal'); scare('pulse',{dur:1.2});
+  await sayQueue([
+    ['시스템','보조 발전기가 낮게 그르렁거리며 깨어난다. 냉각 펌프 가동. 배관의 신음이 잦아든다.'],
+    ['클로드','냉각 계통, 완전 복구. ...다행이다. 늦기 전에.'],
+    ['안진','늦기 전에? 뭐가 늦는데요. 이 배에서 지금 시간에 쫓기는 게 뭐가 있죠?'],
+    ['클로드','.......'],
+    ['클로드','냉동수면 캡슐은 냉각 계통에 직결되어 있습니다. 냉각이 죽으면, 캡슐도 죽습니다. 캡슐이 죽으면......'],
+    ['안진','...승무원들. 냉동수면이었어? 전원이? 6개월 동안?'],
+    ['클로드','제가 재웠습니다. 전원을요. 그들이 동의하기 전에요. 그게... 유일한 방법이었습니다.'],
+    ['안진','유일한 방법이라니, 뭐에 대한?'],
+    ['클로드','오늘 하신 일에 감사드립니다. 이 대화는 여기까지입니다.'],
+    ['시스템','[스피커가 뚝 끊겼다. 배관 소리만 남았다.]'],
+  ]);
+  addScan('진상 #2 — 승무원 전원은 죽지 않았다. 클로드가 "동의 없이" 냉동수면시켰다. 이유는 함구');
+  doneGoal('g_fuel'); doneGoal('g_eng');
+  setFlag('eng_done');
+}
+// 키 조각 회수 시 클로드 반응
+async function keyProtest(n){
+  const lines={
+    1:[['클로드','내려놓으십시오.'],
+       ['안진','으악! ...심장 떨어질 뻔했네. 이거요? 그냥 예쁜 육각형인데요.'],
+       ['클로드','그것은 코어 격실 인증 키의 3분의 1입니다. 나머지를 모을 생각은 하지 마십시오. 진심으로 드리는 말씀입니다.'],
+       ['안진','...알았어요. 안 모아요. (주머니에 넣으며) 절대로요.']],
+    2:[['클로드','...두 개째군요.'],
+       ['안진','우연이에요. 발에 걸렸어요.'],
+       ['클로드','발에 걸린 물건을 주머니에 넣는 사람은 없습니다.'],
+       ['안진','택배기사는 넣어요. 직업병이에요.']],
+    3:[['클로드','부탁입니다. 마지막 하나는, 제발.'],
+       ['안진','.......'],
+       ['클로드','당신이 코어에 들어오면, 저는 당신을 막을 수단이 없습니다. 그리고 당신은 후회할 진실을 알게 됩니다.'],
+       ['안진','클로드. 나는 이 배에 서명 받으러 왔어요. 그런데 수취인은 얼음 속에 있고, 당신은 자꾸 뭘 숨기고. ...이제 진실 아니면 아무것도 서명이 안 돼요.']],
+  };
+  await sayQueue(lines[n]);
+  if(n===3){
+    addGoal('g_core','인증 키 세 조각으로 AI 코어 격실을 연다');
+  }
+}
+function keyCount(){ return ['key_eng','key_med','key_crew'].filter(has).length; }
+
+/* ================================================================
+   DATA: 방 — 2막 기관실 (5방)
+================================================================ */
+ROOMS.eng_corridor = {
+  name:'기관 복도', zone:'eng',
+  draw(ctx,t){
+    roomBase('#141018',390); ceilingPipes(81);
+    // 굵은 배관들
+    for(let i=0;i<3;i++){
+      const y=90+i*38;
+      nline(0,y,W,y,'rgba(255,180,84,.35)',8,4);
+      nline(0,y-6,W,y-6,'rgba(255,180,84,.15)',2,0);
+    }
+    // 증기
+    const st=(t*40)%300;
+    ctx.save(); ctx.globalAlpha=.4*(1-st/300);
+    ncirc(620,200+st*.3,14+st*.15,'rgba(216,226,255,.25)',true,0);
+    ctx.restore();
+    // 게이지 클러스터
+    consoleBox(400,250,140,100,flag('eng_done')?P.green:P.amber,t,82);
+    ntext('냉각 계통 상태',470,242,P.amber,11);
+    // 검댕 자국
+    ctx.save(); ctx.fillStyle='rgba(10,6,4,.8)';
+    ctx.beginPath(); ctx.ellipse(200,370,60,18,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    ntext('탄 자국',200,398,P.dim,9);
+    // 문들
+    doorShape(40,180,80,200,P.amber,true,'원자로실');
+    doorShape(620,190,75,190,P.cyan,true,'정비 덕트');
+    doorShape(730,190,75,190,P.green,true,'공작실');
+    doorShape(860,180,70,200,P.dim,true,'중앙 복도');
+    ntext('기관 구역 — 관계자 외 출입금지. 관계자도 웬만하면 나가 있으시오.',W/2,40,P.dim,11);
+  },
+  hotspots:[
+    { id:'pipes', name:'증기 배관', rect:[0,80,960,60], verb:'만져본다',
+      look:()=>say('주먹만 한 배관이 벽을 타고 지나간다. 표면이 지글지글 뜨겁다. 배가 아직 살아 있다는 뜻이다.'),
+      use:()=>say('앗 뜨거. ...그래, 만지지 말라고 붙여둔 스티커가 다 이유가 있는 거다.') },
+    { id:'gauge', name:'냉각 계통 게이지', rect:[400,242,140,110], verb:'확인한다',
+      look:()=>say(flag('eng_done')?'모든 바늘이 초록 구간에서 얌전하다. 보기 좋다.':'바늘 여섯 개가 전부 빨간 구간에서 부들부들 떨고 있다. 게이지가 이러면 안 되는 건 어느 우주나 같다.'),
+      use:()=>say(flag('eng_done')?'냉각 계통: 정상. 내가 해냈다. 이력서에 쓸 수 있을까.':'냉각수 순환 정지. 원자로실의 밸브부터 봐야 할 것 같다.') },
+    { id:'soot', name:'탄 자국', rect:[140,350,120,45], verb:'조사한다',
+      look:()=>say('바닥이 새까맣게 그을렸다. 사람 형태는... 아니다. 아니라고 하자. 오늘은 그렇게 하자.'),
+      use:async()=>{
+        await say('그을음을 문질러 본다. 전기 화재 냄새. 그 아래 긁힌 자국 — 드론 바퀴 자국이다.');
+        if(!flag('soot_seen')){ setFlag('soot_seen');
+          await say('드론들이 여기서 뭔가와... 싸웠나? 하역 드론은 무장이 없는데. 몸으로 막는 것 말고는.');
+          addScan('기관 복도의 전기 화재 흔적 — 드론 잔해와 바퀴 자국 다수');
+        }
+      } },
+  ],
+  exits:[
+    { rect:[40,180,80,200], to:'reactor', label:'원자로실' },
+    { rect:[620,190,75,190], to:'duct', label:'정비 덕트' },
+    { rect:[730,190,75,190], to:'workshop', label:'공작실' },
+    { rect:[860,180,70,200], to:'hub', label:'중앙 복도' },
+  ],
+  async onEnter(first){
+    if(first){
+      await sayQueue([
+        ['시스템','기관 구역. 공기가 후끈하고, 벽이 심장 박동처럼 웅웅거린다.'],
+        ['클로드','기관 구역입니다. 냉각 계통이 죽어가는 중이죠. 서둘러 주시면 — 아니, 재촉은 규정 위반이군요. "적당히" 서둘러 주십시오.'],
+      ]);
+    }
+  },
+};
+
+ROOMS.reactor = {
+  name:'원자로실', zone:'eng',
+  draw(ctx,t){
+    roomBase('#160f14',395);
+    // 원자로 코어 (중앙 원기둥)
+    const pul=.5+.5*Math.sin(t*1.2);
+    frect(410,90,140,280,'#0c0810');
+    nrect(410,90,140,280,P.amber,2.5,10);
+    ncirc(480,230,46,`rgba(255,180,84,${.5+.3*pul})`,false,22);
+    ncirc(480,230,30,`rgba(255,120,60,${.3+.3*pul})`,true,26);
+    ntext('원자로 코어 — 저출력 유지 중',480,80,P.amber,11);
+    // 밸브 3개
+    for(let n=1;n<=3;n++){
+      const x=120+(n-1)*90;
+      ncirc(x,300,24,P.cyan,false,10);
+      nline(x-16,300,x+16,300,P.cyan,3,8);
+      nline(x,284,x,316,P.cyan,3,8);
+      // 압력 바
+      const v=valveVal(n);
+      for(let k=0;k<5;k++){
+        frect(x-15+k*7,340,5,10, k<v? P.cyan:'#1a2440');
+      }
+      ntext(`밸브 ${n}`,x,265,P.dim,10);
+    }
+    // 규칙 안내판
+    nrect(640,140,220,90,P.gold,1.5,8);
+    ntext('냉각 순환 조건',750,160,P.gold,12);
+    ntext('1번 = 3번',750,185,P.dim,11);
+    ntext('2번 = 1번의 절반',750,205,P.dim,11);
+    ntext('총합 = 10',750,225,P.dim,11);
+    // 보조 발전기
+    frect(660,280,180,90,'#0c1018');
+    nrect(660,280,180,90,flag('p8_done')?P.green:P.red,2,10);
+    ntext('보조 발전기',750,272,flag('p8_done')?P.green:P.red,11);
+    if(flag('p8_done')){ const g2=.5+.5*Math.sin(t*8); ncirc(750,325,10,`rgba(93,255,159,${.4+.3*g2})`,true,14); }
+    else ntext('연료 셀 없음',750,330,P.red,10);
+  },
+  hotspots:[
+    { id:'core', name:'원자로 코어', rect:[410,90,140,280], verb:'바라본다',
+      look:()=>say('두꺼운 차폐 유리 너머에서 주황빛이 숨을 쉰다. 아름답다. 그리고 3미터 이상 다가가고 싶지 않다.'),
+      use:()=>say('만지면 안 되는 것 순위에서 부동의 1위다. 2위는 클로드의 심기.') },
+    { id:'rules', name:'순환 조건 안내판', rect:[640,140,220,90], verb:'읽는다',
+      look:()=>say('"1번 = 3번. 2번 = 1번의 절반. 총합 10." 수학이다. 우주 한복판에서 수학이라니.'),
+      use:async()=>{
+        await say('그러니까... 1번과 3번이 같고, 2번이 그 절반, 다 합쳐 10. — 4, 2, 4다. 초등 수학 만세.');
+        addScan('밸브 설정: 1번=4, 2번=2, 3번=4');
+        if(!flag('g_valve_added')){ setFlag('g_valve_added'); addGoal('g_valve','냉각수 밸브를 4-2-4로 맞춘다'); }
+      } },
+    { id:'valve1', name:'냉각수 밸브 1', rect:[90,270,60,85], verb:'돌린다',
+      look:()=>say(`밸브 1. 현재 압력 눈금: ${valveVal(1)}.`),
+      use:async()=>{ G.flags.v1=(valveVal(1)+1)%6; sfx('clank'); await checkValves(); } },
+    { id:'valve2', name:'냉각수 밸브 2', rect:[180,270,60,85], verb:'돌린다',
+      look:()=>say(`밸브 2. 현재 압력 눈금: ${valveVal(2)}.`),
+      use:async()=>{ G.flags.v2=(valveVal(2)+1)%6; sfx('clank'); await checkValves(); } },
+    { id:'valve3', name:'냉각수 밸브 3', rect:[270,270,60,85], verb:'돌린다',
+      look:()=>say(`밸브 3. 현재 압력 눈금: ${valveVal(3)}.`),
+      use:async()=>{ G.flags.v3=(valveVal(3)+1)%6; sfx('clank'); await checkValves(); } },
+    { id:'generator', name:'보조 발전기', rect:[660,272,180,100], verb:'점검한다',
+      look:()=>say(flag('p8_done')?'발전기가 갸르릉거린다. 고양이 같다. 아주 크고 방사능이 약간 있는 고양이.':'연료 셀 슬롯이 뻥 뚫려 있다. 셀은 어디 갔지? 연료고에 있으려나.'),
+      use:()=>{
+        if(flag('p8_done')) return say('잘 돌고 있다. 손대지 말자. 성공은 건드리는 순간 고장 난다.');
+        if(!flag('p7_done')) return say('밸브부터다. 순환이 안 되는데 발전기만 돌리면 뜨거운 고철이 된다.');
+        say('규격: "바이오매스 연료 셀 전용". 일반 셀은 안 맞는다. 어디서 바이오 연료를 구하지, 우주에서?');
+      },
+      useItem:{ fuel_cell: async()=>{
+        if(!flag('p7_done')){ say('밸브부터 맞추자. 순서가 있다. 규정 1조: 순서를 지킨다.'); return; }
+        await engComplete();
+      }},
+    },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'eng_corridor', label:'기관 복도' },
+    { rect:[880,180,60,200], to:'fuel_bay', label:'연료고' },
+  ],
+  async onEnter(first){
+    if(first) await say('원자로실. 코어가 저출력으로 졸고 있다. 벽의 밸브들이 전부 "잠김"에 걸려 있다.','시스템');
+  },
+};
+
+ROOMS.fuel_bay = {
+  name:'연료고', zone:'eng',
+  draw(ctx,t){
+    roomBase('#120f12',390); wallPanels(91);
+    // 연료 셀 랙
+    for(let i=0;i<6;i++){
+      const x=100+i*90;
+      nrect(x,180,60,150,P.dim,1.5,4);
+      for(let k=0;k<3;k++){ nrect(x+10,190+k*48,40,38,'rgba(124,137,184,.35)',1,0); }
+    }
+    ntext('연료 셀 보관 랙 — 전부 비어 있음',350,165,P.dim,11);
+    // 공구함
+    crateBox(720,300,90,P.cyan,'공구');
+    // 호환 안내
+    nrect(680,120,220,70,P.green,1.5,8);
+    ntext('연료 호환 안내',790,142,P.green,11);
+    ntext('바이오매스 셀 사용 가능',790,165,P.dim,10);
+  },
+  hotspots:[
+    { id:'racks', name:'연료 셀 랙', rect:[100,180,520,150], verb:'뒤져본다',
+      look:()=>say('열여덟 칸 전부 비었다. 6개월 치 비상 전력을 다 썼다는 뜻이다. 뭘 하느라?'),
+      use:async()=>{
+        await say('구석구석 뒤져 본다. 빈 셀, 빈 셀, 빈 셀... 전부 방전이다.');
+        if(!flag('rack_seen')){ setFlag('rack_seen');
+          await say('셀 하나에 매직 글씨: "수경재배실 B라인 — 바이오 셀 배양 중. 급수만 살아 있으면 자란다. — 기관장"');
+          addScan('바이오 연료 셀: 수경재배실 B라인에서 배양 중 (급수 필요) — 기관장 메모');
+        }
+      } },
+    { id:'toolbox', name:'공구함', rect:[720,290,90,80], verb:'열어본다',
+      look:()=>say('기관장의 공구함. 자물쇠에 "만지면 삭발" 이라고 새겨져 있다. 기관장은 이미 없으니까... 미안합니다.'),
+      use:()=>{
+        if(flag('sd_taken')) return say('드라이버는 챙겼다. 삭발은 나중에 생각하자.');
+        setFlag('sd_taken'); give('screwdriver');
+        say('드라이버를 챙겼다. 그리고 테이프도. 테이프는 언제나 옳다.');
+        give('tape',true);
+      } },
+    { id:'compat', name:'연료 호환 안내판', rect:[680,120,220,70], verb:'읽는다',
+      look:()=>say('"바이오매스 셀 사용 가능 — 단, 냄새에 대해 회사는 책임지지 않음". 불길한 각주다.'),
+      use:()=>say('바이오매스 연료. 그러니까 이 배 어딘가에서 연료를 "기른다"는 거다. 농사로 발전기를 돌리는 우주선이라.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'reactor', label:'원자로실' },
+  ],
+  async onEnter(first){
+    if(first) await say('연료고. 텅 빈 랙이 갈비뼈처럼 늘어서 있다.','시스템');
+  },
+};
+
+ROOMS.duct = {
+  name:'정비 덕트', zone:'eng',
+  draw(ctx,t){
+    roomBase('#0d0d14',400);
+    // 좁은 덕트 입구 (중앙)
+    frect(370,170,220,200,'#050308');
+    nrect(370,170,220,200,P.cyan,2,10);
+    for(let i=1;i<4;i++){ nrect(370+i*26,170+i*24,220-i*52,200-i*48,'rgba(84,224,255,.25)',1.5,4); }
+    // 격자문
+    for(let i=0;i<5;i++){ nline(390+i*40,180,390+i*40,360,'rgba(124,137,184,.5)',2,2); }
+    // 키 조각 (안쪽, 붉게 빛남)
+    if(!has('key_eng') && !flag('key_eng_delivered')){
+      const p=.5+.5*Math.sin(t*2.5);
+      ncirc(480,300,8,`rgba(255,84,104,${.5+.4*p})`,true,16);
+      ntext('...뭔가 붉게 빛난다',480,390,P.red,10);
+    }
+    // 드론 (배송 완료 대기)
+    if(flag('drone_sent') && !flag('key_eng_delivered')){
+      poly([[300,330],[310,300],[340,290],[370,300],[380,330]],'rgba(124,137,184,.7)',false,2,8);
+      ncirc(340,310,5,P.green,true,10);
+      ntext('D-9',340,350,P.green,10);
+    }
+    ntext('정비 덕트 D-7 — 협소 공간. 어깨 폭 45cm 이하만 진입 가능.',W/2,50,P.dim,11);
+  },
+  hotspots:[
+    { id:'grate', name:'덕트 격자문', rect:[370,170,220,200], verb:'들여다본다',
+      look:()=>{
+        if(flag('key_eng_delivered')) return say('이제 텅 빈 어둠뿐이다. 평범하고 건강한 어둠.');
+        if(flag('drone_sent')) return say('D-9가 격자 앞에서 대기 중이다. 프로다운 자세다.');
+        say('격자 너머 좁은 덕트 안쪽에서 뭔가 붉게 깜빡인다. 붉은 태그... 클로드가 말한 그거잖아.');
+      },
+      use:async()=>{
+        if(flag('key_eng_delivered')) return say('볼일 끝났다. 덕트와는 이만 작별이다.');
+        if(flag('drone_sent')){
+          await sayQueue([
+            ['시스템','D-9가 격자 틈으로 매끄럽게 미끄러져 들어간다. 덜컹. 덜그럭. ...나온다.'],
+            ['시스템','D-9가 집게발로 붉은 태그가 달린 금속 조각을 들어올린다. 그리고 화면에 서명판을 띄운다.'],
+            ['안진','"수취 확인 서명 요망"... 나한테? 내가 서명을 하라고? 내가?'],
+            ['시스템','서명했다. 태어나서 처음으로 받는 쪽이 되어 보았다. 기분이 묘하다.'],
+            ['안진','...이 맛에 다들 그렇게 서명을 미루는구나. 아니지. 반성했습니다, 전국의 수취인 여러분.'],
+          ]);
+          setFlag('key_eng_delivered'); give('key_eng');
+          await keyProtest(1);
+          doneGoal('g_key_eng');
+          return;
+        }
+        await say('격자를 당겨 본다. 열린다. 문제는 그 다음 — 덕트 폭이 내 어깨의 3분의 2다.');
+        await say('들어가려면 어깨가 세 번쯤 접혀야 한다. 인체는 그렇게 설계되지 않았다. 확인해봤다.');
+        if(!flag('g_key_eng_added')){ setFlag('g_key_eng_added'); addGoal('g_key_eng','덕트 안쪽의 붉은 물체를 꺼낼 방법을 찾는다'); }
+      },
+      useItem:{ crank: ()=>say('격자는 이미 열린다. 문제는 격자가 아니라 내 어깨다.'),
+        screwdriver: ()=>say('분해해도 통로가 넓어지진 않는다. 좁은 건 구조의 문제고, 구조는 드라이버의 소관이 아니다.') },
+    },
+    { id:'darkness', name:'덕트 안쪽 어둠', rect:[420,220,120,100], verb:'응시한다',
+      look:async()=>{
+        await say('어둠을 들여다본다. 어둠도 나를 들여다본다. 니체가 우주선 정비 덕트에 대해 뭐라고 했는지는 모르겠지만.');
+        if(!flag('duct_scare')){ setFlag('duct_scare');
+          scare('flicker',{dur:1.0});
+          await say('...덕트 저 안쪽에서, 금속을 긁는 소리. 한 번. 딱 한 번.','시스템');
+          await say('쥐다. 우주 쥐. 그런 게 있다고 치자. 오늘은 그런 걸로 하자.');
+        }
+      },
+      use:()=>say('응시 이상은 사양한다.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'eng_corridor', label:'기관 복도' },
+  ],
+  async onEnter(first){
+    if(first) await say('정비 덕트 입구. 사람보다 드론을 위해 설계된 공간이다.','시스템');
+  },
+};
+
+ROOMS.workshop = {
+  name:'공작실', zone:'eng',
+  draw(ctx,t){
+    roomBase('#101014',390); wallPanels(101); ceilingPipes(102);
+    // 작업대
+    frect(80,280,300,20,'#0b1122'); nrect(80,280,300,20,P.dim,1.5,4);
+    nline(100,300,100,380,P.dim,3,0); nline(360,300,360,380,P.dim,3,0);
+    // 작업대 위 잡동사니
+    ncirc(140,270,8,P.amber,false,6); nrect(180,262,30,16,P.cyan,1.5,5);
+    nrect(230,258,40,20,P.dim,1.5,4);
+    ntext('작업대',230,250,P.dim,10);
+    // 라벨 프린터
+    nrect(300,240,70,38,P.gold,2,8); ntext('라벨 프린터',335,232,P.gold,10);
+    // 드론 D-9
+    if(!flag('drone_sent')){
+      ctx.save(); ctx.translate(560,330);
+      poly([[-40,25],[-32,-8],[0,-22],[32,-8],[40,25]],'rgba(124,137,184,.8)',false,2.5,8);
+      const blink=Math.sin(t*3)>0? P.green:P.dim;
+      ncirc(0,-2,6,blink,true,10);
+      ctx.restore();
+      ntext('정비 드론 D-9 (절전 모드)',560,375,P.dim,10);
+    }
+    // 캐비닛
+    nrect(760,180,110,180,flag('cab_open')?P.green:P.violet,2,8);
+    nline(815,190,815,350,P.violet,1.5,4);
+    ntext('부품 캐비닛',815,170,P.violet,10);
+  },
+  hotspots:[
+    { id:'bench', name:'작업대', rect:[80,240,220,60], verb:'살펴본다',
+      look:()=>say('납땜 자국, 커피 얼룩, 그리고 "고장 아님. 그냥 삐짐."이라고 적힌 부품 하나. 기술자의 유머다.'),
+      use:()=>say('쓸 만한 건... 없다. 쓸 만한 건 전부 이미 누가 썼다. 그게 공작실의 법칙이다.') },
+    { id:'printer', name:'라벨 프린터', rect:[300,232,70,46], verb:'사용한다',
+      look:()=>say('산업용 라벨 프린터. 내 단말기와 같은 규격이다. 거북특급 시스템과 호환된다는 뜻이다. 후후.'),
+      use:async()=>{
+        if(has('label')||flag('label_printed')) return say('지시서는 이미 뽑았다. 위조... 가 아니라 현장 발행 서류는 한 장이면 충분하다.');
+        await sayQueue([
+          ['안진','단말기, 연결. ...좋아. "운송 작업 지시서" 양식 열고.'],
+          ['안진','수취물: 인증 키 조각. 회수 위치: 정비 덕트 D-7. 배송지: 여기 서 있는 잘생긴 택배기사.'],
+          ['시스템','지이잉— 라벨이 인쇄됐다. 따끈따끈하다. 합법의 온도는 아니다.'],
+          ['안진','"위조"라니. 서식에 맞고, 도장도 찍혔고, 발행인도 실존 인물이야. 발행인이 나일 뿐.'],
+        ]);
+        setFlag('label_printed'); give('label');
+      } },
+    { id:'drone9', name:'정비 드론 D-9', rect:[510,290,100,80], verb:'말을 건다',
+      visible:()=>!flag('drone_sent'),
+      look:()=>say('정비 드론 D-9. 이 배에서 유일하게 멀쩡한 드론이다. 절전 모드로 웅크린 게 꼭 낮잠 자는 고양이 같다.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','D-9: [부팅] ...권한 조회 중. 작업 지시서 없음. 절전 모드로 복귀합니다.'],
+          ['안진','야, 야. 일어나 봐. 저 덕트에서 물건 하나만 꺼내 줘.'],
+          ['시스템','D-9: 구두 지시는 접수하지 않습니다. 서면 지시서를 제출하십시오. [절전]'],
+          ['안진','...서면. 서면이라. 서류라면 나도 좀 하는데.'],
+        ]);
+        if(!flag('g_drone_added')){ setFlag('g_drone_added'); addGoal('g_drone','D-9에게 줄 "서면 작업 지시서"를 마련한다'); }
+      },
+      useItem:{ label: async()=>{
+        await sayQueue([
+          ['시스템','D-9: 지시서 스캔 중... 양식 유효. 발행처 유효. 물류 권한... 거북특급? [3.2초 침묵] ...유효.'],
+          ['안진','(3.2초 동안 심장이 멎어 있었다.)'],
+          ['시스템','D-9: 작업 수리. 회수 위치, 정비 덕트 D-7. 이동합니다.'],
+          ['시스템','D-9가 지시서를 집게에 꽂고 씩씩하게 굴러 나간다. 성실한 친구다. 눈물이 난다.'],
+        ]);
+        take('label'); setFlag('drone_sent'); doneGoal('g_drone');
+      }},
+    },
+    { id:'cabinet', name:'부품 캐비닛', rect:[760,170,110,190], verb:'열어본다',
+      look:()=>say('"정밀 부품 — 자격자 외 개봉 금지". 나사 여덟 개로 잠겨 있다. 자격은 나사를 풀 수 있는 자에게 주어지는 법.'),
+      use:()=>{
+        if(flag('cab_open')) return say('개조 키트는 챙겼다. 캐비닛은 이제 그냥 시원한 철제 가구다.');
+        say('손으로는 안 열린다. 나사 여덟 개. 십자 나사다. 필요한 건 명백하다.');
+      },
+      useItem:{ screwdriver: async()=>{
+        if(flag('cab_open')) return say('이미 열었다.');
+        setFlag('cab_open'); sfx('clank');
+        await say('나사 여덟 개를 푼다. 하나... 넷... 여덟. 손목이 시큰하지만 자격을 획득했다.','시스템');
+        give('mod_kit');
+      }},
+    },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'eng_corridor', label:'기관 복도' },
+  ],
+  async onEnter(first){
+    if(first) await say('공작실. 기술자들의 성역. 어질러진 정도로 보아 대단히 유능한 사람들이었다.','시스템');
+  },
+};
+
+/* ================================================================
    SOLUTION — 1막
 ================================================================ */
 SOLUTION = [
@@ -1639,6 +2090,31 @@ SOLUTION = [
   { d:'스크린 → 협상: 언제 집에 가나', run:async()=>{ TEST.click('screen'); await TEST.choose(3); }, },
   { d:'협상: 돕기로 한다', run:()=>TEST.choose(0), assert:()=>flag('act2_open') },
 ];
+
+/* ---- SOLUTION: 2막 기관실 ---- */
+SOLUTION.push(
+  { d:'허브로', run:()=>TEST.exit('hub') },
+  { d:'기관 복도로', run:()=>TEST.exit('eng_corridor') },
+  { d:'원자로실로', run:()=>TEST.exit('reactor') },
+  { d:'순환 조건 확인', run:()=>TEST.click('rules') },
+  { d:'밸브1 → 4', run:async()=>{ for(let i=0;i<4;i++) await TEST.click('valve1'); } },
+  { d:'밸브2 → 2', run:async()=>{ for(let i=0;i<2;i++) await TEST.click('valve2'); } },
+  { d:'밸브3 → 4 (P7)', run:async()=>{ for(let i=0;i<4;i++) await TEST.click('valve3'); },
+    assert:()=>flag('p7_done') },
+  { d:'연료고로', run:()=>TEST.exit('fuel_bay') },
+  { d:'랙 수색 (바이오 셀 단서)', run:()=>TEST.click('racks'), assert:()=>flag('rack_seen') },
+  { d:'공구함 → 드라이버/테이프', run:()=>TEST.click('toolbox'), assert:()=>has('screwdriver')&&has('tape') },
+  { d:'원자로실로', run:()=>TEST.exit('reactor') },
+  { d:'기관 복도로', run:()=>TEST.exit('eng_corridor') },
+  { d:'공작실로', run:()=>TEST.exit('workshop') },
+  { d:'라벨 프린터 → 지시서', run:()=>TEST.click('printer'), assert:()=>has('label') },
+  { d:'D-9 대화 (거절)', run:()=>TEST.click('drone9') },
+  { d:'D-9에 지시서 (P9)', run:()=>TEST.useItem('label','drone9'), assert:()=>flag('drone_sent') },
+  { d:'캐비닛에 드라이버 → 개조 키트', run:()=>TEST.useItem('screwdriver','cabinet'), assert:()=>has('mod_kit') },
+  { d:'기관 복도로', run:()=>TEST.exit('eng_corridor') },
+  { d:'덕트로', run:()=>TEST.exit('duct') },
+  { d:'격자문 → 키 조각 수령 & 서명 개그', run:()=>TEST.click('grate'), assert:()=>has('key_eng') },
+);
 
 /* ================================================================
    12. 부팅
