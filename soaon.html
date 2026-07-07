@@ -593,9 +593,13 @@ function hitTest(x,y){
 }
 function showLabel(html,x,y){
   hlabel.innerHTML=html; hlabel.style.display='block';
-  const scale = getScale();
-  hlabel.style.left = clamp(x*scale+14, 0, 960*scale-160)+'px';
-  hlabel.style.top  = clamp(y*scale+10, 0, 540*scale-30)+'px';
+  // #scaler 내부라 transform이 이미 적용됨 — 논리 좌표(960×540) 그대로 사용
+  const w = hlabel.offsetWidth, h = hlabel.offsetHeight;
+  let lx = x + 16, ly = y + 14;
+  if(lx + w > 954) lx = x - w - 10;  // 우측 가장자리: 커서 왼쪽으로
+  if(ly + h > 534) ly = y - h - 8;   // 하단 가장자리: 커서 위로
+  hlabel.style.left = clamp(lx, 4, 954 - w) + 'px';
+  hlabel.style.top  = clamp(ly, 4, 534 - h) + 'px';
 }
 function hideLabel(){ hlabel.style.display='none'; }
 
