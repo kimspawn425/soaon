@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git init)",
+      "PowerShell(git add -A)",
+      "PowerShell(git commit -m \"chore: initial commit \\(existing XCOM game + soaon design/plan docs\\)\")",
+      "PowerShell(git checkout -b soaon-adventure)"
+    ]
+  }
+}
