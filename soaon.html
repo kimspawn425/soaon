@@ -85,11 +85,67 @@
   .choice:hover{border-color:var(--gold); color:var(--gold); transform:translateX(4px);}
   .choice .n{color:var(--dim); margin-right:8px; font-size:12px;}
 
-  /* ---------- 오버레이 공통 (PDA/메뉴/타이틀: 후속 태스크) ---------- */
+  /* ---------- 오버레이 공통 ---------- */
   .overlay{
     position:absolute; inset:0; z-index:50; display:none;
     background:rgba(2,4,10,.9); align-items:center; justify-content:center;
   }
+  .obox{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    width:760px; max-height:520px; display:flex; flex-direction:column;
+    box-shadow:0 0 40px rgba(84,224,255,.15);
+  }
+  .ohead{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 18px; border-bottom:1px solid var(--line);
+    color:var(--cyan); font-size:15px; letter-spacing:1px;
+  }
+  .ohead button, .obtn{
+    background:var(--panel2); border:1px solid var(--line); color:var(--txt);
+    border-radius:6px; padding:6px 14px; cursor:pointer; font-size:13px; font-family:inherit;
+  }
+  .ohead button:hover, .obtn:hover{border-color:var(--cyan); color:var(--cyan);}
+
+  #pdaTabs{display:flex; gap:6px; padding:10px 18px 0;}
+  #pdaTabs button{
+    background:none; border:1px solid var(--line); border-bottom:none; color:var(--dim);
+    border-radius:8px 8px 0 0; padding:7px 18px; cursor:pointer; font-size:13px; font-family:inherit;
+  }
+  #pdaTabs button.on{color:var(--gold); border-color:var(--gold); background:var(--panel2);}
+  #pdaBody{
+    margin:0 18px 16px; border:1px solid var(--line); border-radius:0 8px 8px 8px;
+    background:var(--panel2); min-height:330px; max-height:380px; overflow-y:auto; padding:14px 18px;
+    font-size:14px; line-height:1.8;
+  }
+  #pdaBody .goal{color:var(--txt);}
+  #pdaBody .goal.done{color:var(--dim); text-decoration:line-through;}
+  #pdaBody .goal::before{content:'▸ '; color:var(--gold);}
+  #pdaBody .goal.done::before{content:'✓ '; color:var(--green);}
+  #pdaBody .scanline{color:var(--cyan); border-bottom:1px dashed var(--line); padding:4px 0; font-size:13px;}
+
+  /* 타이틀 */
+  #title{flex-direction:column; gap:26px; text-align:center; background:rgba(2,4,10,.97);}
+  #title h1{
+    font-size:52px; letter-spacing:10px; color:var(--cyan);
+    text-shadow:0 0 24px rgba(84,224,255,.8), 0 0 60px rgba(84,224,255,.4);
+  }
+  #title .tsub{color:var(--dim); font-size:15px; letter-spacing:3px;}
+  #title .tco{color:var(--gold); font-size:13px;}
+  #title .tbtns{display:flex; flex-direction:column; gap:10px; width:280px;}
+  #title .tbtns button{
+    background:var(--panel2); border:1px solid var(--line); color:var(--txt);
+    border-radius:8px; padding:13px; font-size:16px; cursor:pointer; letter-spacing:4px; font-family:inherit;
+  }
+  #title .tbtns button:hover{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 16px rgba(84,224,255,.3);}
+  #title .tbtns button:disabled{opacity:.35; cursor:default;}
+
+  .slotrow{
+    display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line);
+    font-size:13px;
+  }
+  .slotrow .sname{flex:1; color:var(--dim);}
+  #menu .obox{width:420px;}
+  #menu .mbtns{display:flex; flex-direction:column; gap:8px; padding:16px 18px;}
 </style>
 </head>
 <body>
@@ -104,6 +160,36 @@
     <div id="hlabel"></div>
     <div id="subs"></div>
     <div id="choices"></div>
+
+    <div class="overlay" id="pda">
+      <div class="obox">
+        <div class="ohead"><span>거북특급 배송 단말기 GT-3000 <small style="color:var(--dim)">(펌웨어 업데이트 741일 지남)</small></span><button id="pdaClose">닫기 [Tab]</button></div>
+        <div id="pdaTabs">
+          <button data-t="goals" class="on">배송 업무</button>
+          <button data-t="scans">스캔 기록</button>
+          <button data-t="map">선내 지도</button>
+        </div>
+        <div id="pdaBody"></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="menu">
+      <div class="obox">
+        <div class="ohead"><span>일시정지</span><button id="menuClose">계속하기 [Esc]</button></div>
+        <div class="mbtns" id="menuBody"></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="title">
+      <h1>소아온호</h1>
+      <div class="tsub">S O A O N &nbsp;—&nbsp; 우주 택배기사의 아주 긴 하루</div>
+      <div class="tco">거북특급 — 빛보다 성실한 배송</div>
+      <div class="tbtns">
+        <button id="btnNew">새 게임</button>
+        <button id="btnCont">이어하기</button>
+      </div>
+      <div class="tsub" style="font-size:12px">좌클릭: 행동 · 우클릭: 관찰 · Tab: 단말기 · Esc: 메뉴</div>
+    </div>
   </div></div>
 </div>
 
@@ -263,6 +349,7 @@ const SPEAKER_CLS = {'안진':'sp-anjin','클로드':'sp-claude','클로드2':'s
 
 function sayNow(text, speaker='안진'){
   return new Promise(res=>{
+    if(typeof TESTFAST!=='undefined' && TESTFAST){ res(); return; }
     subsEl.innerHTML='';
     const d=document.createElement('div');
     d.className='subline '+(SPEAKER_CLS[speaker]||'sp-anjin');
@@ -554,6 +641,260 @@ function addScan(text){
 }
 
 /* ================================================================
+   8.5 PDA (배송 단말기)
+================================================================ */
+const pdaEl=$('pda'), pdaBody=$('pdaBody');
+let pdaTab='goals';
+
+// 선내 지도 좌표 (방이 추가될 때마다 등록)
+const MAP_POS = {
+  test_room:[350,180],
+  dock_bay:[80,180], cargo_check:[190,180], hub:[350,180], bridge:[350,95],
+  eng_corridor:[220,280], reactor:[115,280], fuel_bay:[115,345], duct:[220,345], workshop:[325,345],
+  med_corridor:[490,120], medbay:[595,120], lab:[700,120], cryo_bay:[595,58], quarantine:[700,58],
+  crew_corridor:[490,245], mess:[595,245], quarters_a:[700,245], captain:[700,310], hydro:[595,310],
+  ai_ante:[440,40], ai_core:[350,20], vault:[255,40],
+};
+const MAP_LINKS = [
+  ['dock_bay','cargo_check'],['cargo_check','hub'],['hub','bridge'],
+  ['hub','eng_corridor'],['eng_corridor','reactor'],['reactor','fuel_bay'],['eng_corridor','duct'],['eng_corridor','workshop'],
+  ['hub','med_corridor'],['med_corridor','medbay'],['medbay','lab'],['medbay','cryo_bay'],['lab','quarantine'],
+  ['hub','crew_corridor'],['crew_corridor','mess'],['mess','quarters_a'],['quarters_a','captain'],['mess','hydro'],
+  ['bridge','ai_ante'],['ai_ante','ai_core'],['ai_core','vault'],
+];
+
+function togglePda(force){
+  const show = force!==undefined? force : pdaEl.style.display!=='flex';
+  if(dialogActive && show) return;
+  pdaEl.style.display = show?'flex':'none';
+  if(show) renderPda();
+}
+function renderPda(){
+  document.querySelectorAll('#pdaTabs button').forEach(b=>b.classList.toggle('on', b.dataset.t===pdaTab));
+  if(pdaTab==='goals'){
+    const gs=Object.values(G.goals);
+    pdaBody.innerHTML = gs.length? '' : '<div style="color:var(--dim)">등록된 업무 없음. 완벽한 하루다.</div>';
+    // 미완료 먼저, 완료 나중
+    [...gs.filter(g=>!g.done), ...gs.filter(g=>g.done)].forEach(g=>{
+      const d=document.createElement('div');
+      d.className='goal'+(g.done?' done':''); d.textContent=g.text;
+      pdaBody.appendChild(d);
+    });
+  }else if(pdaTab==='scans'){
+    pdaBody.innerHTML = G.scans.length? '' : '<div style="color:var(--dim)">스캔 기록 없음. 단말기가 심심해한다.</div>';
+    G.scans.forEach(s=>{
+      const d=document.createElement('div'); d.className='scanline'; d.textContent='» '+s;
+      pdaBody.appendChild(d);
+    });
+  }else{ // map
+    pdaBody.innerHTML='';
+    const mc=document.createElement('canvas'); mc.width=690; mc.height=380;
+    mc.style.width='100%';
+    pdaBody.appendChild(mc);
+    const m=mc.getContext('2d');
+    m.fillStyle='#0a0f1e'; m.fillRect(0,0,690,380);
+    m.strokeStyle='rgba(84,224,255,.25)'; m.lineWidth=1.5;
+    for(const [a,b] of MAP_LINKS){
+      if(!G.visited[a]||!G.visited[b]) continue;
+      const [ax,ay]=MAP_POS[a],[bx,by]=MAP_POS[b];
+      m.beginPath(); m.moveTo(ax,ay); m.lineTo(bx,by); m.stroke();
+    }
+    for(const id in MAP_POS){
+      if(!G.visited[id]||!ROOMS[id]) continue;
+      const [x,y]=MAP_POS[id];
+      const cur = id===G.room;
+      m.fillStyle = cur? 'rgba(255,209,102,.25)':'rgba(19,27,48,.9)';
+      m.strokeStyle = cur? '#ffd166':'#22304f';
+      m.shadowColor = cur? '#ffd166':'transparent'; m.shadowBlur=cur?10:0;
+      const bw=86,bh=30;
+      m.fillRect(x-bw/2,y-bh/2,bw,bh); m.strokeRect(x-bw/2,y-bh/2,bw,bh);
+      m.shadowBlur=0;
+      m.fillStyle=cur?'#ffd166':'#7c89b8'; m.font='11px "Malgun Gothic"'; m.textAlign='center';
+      m.fillText(ROOMS[id].name, x, y+4);
+    }
+    m.fillStyle='#7c89b8'; m.font='11px "Malgun Gothic"'; m.textAlign='left';
+    m.fillText('※ 방문한 구역만 표시됩니다. 단말기는 당신이 가 본 곳만 안다.', 12, 368);
+  }
+}
+document.querySelectorAll('#pdaTabs button').forEach(b=>{
+  b.addEventListener('click', ()=>{ pdaTab=b.dataset.t; renderPda(); });
+});
+$('pdaClose').addEventListener('click', ()=>togglePda(false));
+$('btnPda').addEventListener('click', ()=>togglePda());
+
+/* ================================================================
+   8.6 세이브 / 로드 / 타이틀 / 메뉴
+================================================================ */
+const SAVE_PREFIX='soaon_';
+let START_ROOM='test_room';
+let gameStarted=false;
+
+function snapshot(){
+  return JSON.stringify({
+    room:G.room, flags:G.flags, inv:G.inv, goals:G.goals,
+    scans:G.scans, visited:G.visited, ending:G.ending,
+    when:new Date().toLocaleString('ko-KR'),
+  });
+}
+function saveGame(slot='auto'){ try{ localStorage.setItem(SAVE_PREFIX+slot, snapshot()); }catch(e){} }
+function loadGame(slot='auto'){
+  const raw=localStorage.getItem(SAVE_PREFIX+slot);
+  if(!raw) return false;
+  try{
+    const d=JSON.parse(raw);
+    Object.assign(G,{flags:d.flags||{}, inv:d.inv||[], goals:d.goals||{},
+      scans:d.scans||[], visited:d.visited||{}, ending:d.ending||null, selItem:null});
+    renderInv();
+    G.room=null; goto(d.room||START_ROOM);
+    return true;
+  }catch(e){ return false; }
+}
+function saveInfo(slot){
+  const raw=localStorage.getItem(SAVE_PREFIX+slot);
+  if(!raw) return null;
+  try{ const d=JSON.parse(raw); return {when:d.when, room:(ROOMS[d.room]&&ROOMS[d.room].name)||d.room}; }catch(e){ return null; }
+}
+function autoSave(){ if(gameStarted) saveGame('auto'); }
+
+function resetState(){
+  Object.assign(G,{room:null,flags:{},inv:[],goals:{},scans:[],visited:{},ending:null,selItem:null});
+  renderInv();
+}
+function newGame(){
+  resetState();
+  gameStarted=true;
+  $('title').style.display='none';
+  goto(START_ROOM);
+}
+function continueGame(){
+  if(loadGame('auto')){ gameStarted=true; $('title').style.display='none'; }
+}
+function toTitle(){
+  $('menu').style.display='none';
+  gameStarted=false;
+  showTitle();
+}
+function showTitle(){
+  $('title').style.display='flex';
+  $('btnCont').disabled = !localStorage.getItem(SAVE_PREFIX+'auto');
+}
+$('btnNew').addEventListener('click', newGame);
+$('btnCont').addEventListener('click', continueGame);
+
+const menuEl=$('menu'), menuBody=$('menuBody');
+function toggleMenu(force){
+  const show = force!==undefined? force : menuEl.style.display!=='flex';
+  menuEl.style.display=show?'flex':'none';
+  if(show) renderMenu();
+}
+function renderMenu(){
+  menuBody.innerHTML='';
+  for(let i=1;i<=3;i++){
+    const info=saveInfo('slot'+i);
+    const row=document.createElement('div'); row.className='slotrow';
+    row.innerHTML=`<span class="sname">슬롯 ${i} — ${info? info.when+' · '+info.room : '(비어 있음)'}</span>`;
+    const bs=document.createElement('button'); bs.className='obtn'; bs.textContent='저장';
+    bs.addEventListener('click',()=>{ saveGame('slot'+i); renderMenu(); });
+    const bl=document.createElement('button'); bl.className='obtn'; bl.textContent='불러오기'; bl.disabled=!info;
+    bl.addEventListener('click',()=>{ if(loadGame('slot'+i)){ gameStarted=true; toggleMenu(false); } });
+    row.appendChild(bs); row.appendChild(bl);
+    menuBody.appendChild(row);
+  }
+  const bt=document.createElement('button'); bt.className='obtn'; bt.textContent='타이틀 화면으로';
+  bt.style.marginTop='10px';
+  bt.addEventListener('click', toTitle);
+  menuBody.appendChild(bt);
+}
+$('menuClose').addEventListener('click', ()=>toggleMenu(false));
+$('btnMenu').addEventListener('click', ()=>toggleMenu());
+
+window.addEventListener('keydown', ev=>{
+  if(!gameStarted) return;
+  if(ev.key==='Tab'){ ev.preventDefault(); togglePda(); }
+  else if(ev.key==='Escape'){ toggleMenu(); }
+  else if(ev.key>='1' && ev.key<='9' && choiceResolver){
+    const idx=+ev.key-1;
+    if(idx < choicesEl.children.length) pickChoice(idx);
+  }
+  else if((ev.key===' '||ev.key==='Enter') && sayBusy){ finishSay(); }
+});
+
+/* ================================================================
+   8.7 TEST 하니스 & 솔루션 러너
+================================================================ */
+let TESTFAST=false;
+function waitFor(cond, desc, timeout=4000){
+  return new Promise((res,rej)=>{
+    const t0=performance.now();
+    (function poll(){
+      if(cond()) return res();
+      if(performance.now()-t0>timeout) return rej(new Error('waitFor timeout: '+desc));
+      setTimeout(poll, 8);
+    })();
+  });
+}
+function findHot(id){
+  const h=activeHotspots().find(h=>h.id===id);
+  if(!h) throw new Error(`hotspot '${id}' not visible in room '${G.room}'`);
+  return h;
+}
+const TEST = {
+  state(){ return JSON.parse(JSON.stringify({room:G.room,inv:G.inv,flags:G.flags})); },
+  async settle(){ await waitFor(()=>!sayBusy || !!choiceResolver, 'settle'); },
+  async click(id){ const h=findHot(id); await (h.use? h.use() : h.look && h.look()); await this.settle(); },
+  async look(id){ const h=findHot(id); if(h.look) await h.look(); await this.settle(); },
+  async useItem(itemId,hotId){
+    if(!has(itemId)) throw new Error(`item '${itemId}' not in inventory`);
+    const h=findHot(hotId);
+    const fn=h.useItem && h.useItem[itemId];
+    if(fn) await fn(); else failUse(itemId,h);
+    await this.settle();
+  },
+  async combine(a,b){
+    const fn=COMBOS[comboKey(a,b)];
+    if(!fn) throw new Error(`no combo ${a}+${b}`);
+    await fn(); await this.settle();
+  },
+  async choose(idx){
+    await waitFor(()=>!!choiceResolver, 'choice menu');
+    if(idx>=choicesEl.children.length) throw new Error(`choice idx ${idx} out of range (${choicesEl.children.length})`);
+    pickChoice(idx); await this.settle();
+  },
+  async exit(to){
+    const e=activeExits().find(e=>e.to===to);
+    if(!e) throw new Error(`no exit to '${to}' from '${G.room}'`);
+    if(e.locked && e.locked()) throw new Error(`exit to '${to}' locked: ${e.lockedMsg||''}`);
+    goto(to); await this.settle();
+  },
+};
+
+let SOLUTION = []; // [{d:'설명', run:async()=>{}, assert:()=>bool}]
+async function runSolution(upTo=Infinity){
+  TESTFAST=true;
+  try{
+    resetState(); gameStarted=true;
+    $('title').style.display='none';
+    goto(START_ROOM);
+    await TEST.settle();
+    for(let i=0;i<SOLUTION.length && i<upTo;i++){
+      const s=SOLUTION[i];
+      try{
+        await s.run();
+        // 대화 트리가 완전히 끝날 때까지 대기
+        await waitFor(()=>!dialogActive || !!choiceResolver, 'dialog settle', 6000);
+        if(s.assert && !s.assert()) throw new Error('assert failed');
+      }catch(e){
+        throw new Error(`SOLUTION step ${i} [${s.d}] failed: ${e.message}`);
+      }
+    }
+    return `OK: ${Math.min(SOLUTION.length,upTo)} steps passed (room=${G.room})`;
+  }finally{
+    TESTFAST=false;
+  }
+}
+window.TEST=TEST; window.runSolution=runSolution;
+
+/* ================================================================
    9. DATA: 방 — 테스트 방
 ================================================================ */
 ITEMS.t_wrench = {
@@ -621,11 +962,21 @@ ROOMS.test_room = {
   onEnter(first){ if(first) say('여긴 테스트 격실이다. 엔진이 잘 도는지 보는 곳.','시스템'); },
 };
 
+// 임시 솔루션 (실 콘텐츠로 교체 예정)
+SOLUTION = [
+  { d:'상자를 열어 아이템 획득', run:()=>TEST.click('crate'),
+    assert:()=>has('t_wrench') && has('t_tape') },
+  { d:'렌치+테이프 조합', run:()=>TEST.combine('t_wrench','t_tape'),
+    assert:()=>flag('t_combined') },
+  { d:'콘솔 대화에서 조건부 선택지', run:async()=>{ TEST.click('console'); await TEST.choose(1); },
+    assert:()=>!dialogActive || true },
+];
+
 /* ================================================================
    12. 부팅
 ================================================================ */
 applyScale();
-goto('test_room');
+showTitle();
 requestAnimationFrame(drawFrame);
 window.G=G; window.goto_=goto;
 </script>
