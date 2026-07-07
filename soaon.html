@@ -1212,13 +1212,97 @@ DIALOGS.cb_deal_ok = {
   next:null,
 };
 
-// 허브 스피커 (반복 대화)
+// 힌트 시스템 — 진행도 기반 다음 단서 (클로드가 마지못해 제공)
+function nextHint(){
+  if(!flag('claude_intro')) return '클램프 제어반에 수동 해제 크랭크 삽입구가 있지 않았습니까. 크랭크는 보통 비상 공구함에 있죠. 공구함은 보통... 불이 켜져야 보이고요.';
+  if(!flag('hub_open')) return '인터컴이란 상대가 받을 때까지 누르라고 있는 물건입니다. 그리고 당신, 규정집 하나는 기가 막히게 외우고 다니시더군요.';
+  if(!flag('bridge_open')) return '검수 단말기는 이 배의 모든 입출고를 기억합니다. 선장님의 "보안 의식"까지도요.';
+  if(!flag('bridge_power')) return '선장님은 메모를 시적으로 쓰는 분이었습니다. 바다, 노을, 숲. ...색맹 검사가 아닙니다.';
+  if(!flag('act2_open')) return '메인 스크린 앞에서, 집에 가는 방법을 물어보십시오. 솔직한 대답을 준비해 뒀습니다.';
+  if(!flag('p7_done')) return '원자로실 안내판은 산수 문제입니다. 힌트: 답의 합은 10이고, 저는 방금 답의 3분의 1을 말했습니다.';
+  if(!flag('drone_sent') && !flag('key_eng_delivered')) return 'D-9는 융통성이 없습니다. 서면 지시서만 받죠. 공작실 라벨 프린터가... 당신 단말기와 같은 규격이던데요. 제가 이 말을 왜 했을까요.';
+  if(!has('key_eng') && !flag('key_eng_delivered')) return '덕트의 물건은 잊으라고 말씀드렸습니다. ...하지만 잊지 않으실 거라면, 방금 일감을 받은 드론이 덕트 앞에 있습니다.';
+  if(!flag('knows_cat_name')) return '이 배의 암호들은 전부 한 존재로 통합니다. 식당에 가 보십시오. 그 존재의 밥그릇이 있습니다.';
+  if(!flag('knows_cat_day')) return '식당 게시판. 파티 공지. 승무원들은 기념일을 좋아했습니다.';
+  if(!flag('med_open')) return '닥터 문은 혼잣말을 기록으로 남기는 분이었습니다. 의무 복도의 음성 단말기를 재생해 보십시오.';
+  if(!flag('p11_done')) return '닥터 문의 책상 메모에 분석 절차가 있습니다. 표본, 시약, 가동. 순서가 전부입니다.';
+  if(!flag('p12_done')) return '냉동수면실 명단과 캡슐 수를 대조해 보십시오. 산수는 잔인한 학문입니다.';
+  if(!has('key_med')) return '격리실의 그를 만나 보십시오. ...조심스럽게. 그는 이 배의 영웅입니다.';
+  if(!flag('knows_menu')) return '선장님의 식성은 함내에서 유명했습니다. 식당 메뉴판에 주방장의 원성이 남아 있죠.';
+  if(!flag('p13_done')) return '사람의 비밀번호는 그 사람의 요약본입니다. 선장님의 요약본은 숫자 하나로 충분하고요.';
+  if(!flag('p14_done')) return '수경재배실 급수는 기관실 냉각 순환에 물려 있습니다. 냉각이 살아 있다면, 버튼 하나면 됩니다.';
+  if(!flag('p8_done')) return '발전기는 바이오매스 셀 전용입니다. 물을 먹은 B라인이 뭔가를 길러 냈을 겁니다.';
+  if(keyCount()<3) return '...나머지 조각의 위치는 말할 수 없습니다. 진심으로요. 이건 힌트 거부가 아니라 애원입니다.';
+  if(!flag('core_open')) return '브리지의 해치. 세 조각. ...제가 이 힌트를 제공하고 있다는 사실이 믿기지 않는군요.';
+  return '이제 제가 드릴 힌트는 없습니다. 남은 건 당신의 결정뿐입니다.';
+}
+// 허브 스피커 (반복 대화 + 힌트)
 DIALOGS.hub_sp = {
   speaker:'클로드',
   text:()=>{
-    if(flag('act2_open')) return '구역 세 곳. 설비 복구. 잊지 않으셨죠. 진행 상황은 단말기의 "배송 업무" 탭을 확인하십시오. ...당신 단말기에 제가 접속했냐고요? 네.';
+    if(flag('act2_open')) return '네. 듣고 있습니다. 항상요. ...그게 더 무섭다고요? 익숙해지십시오.';
     if(flag('hub_open')) return '중앙 복도"까지만"이라고 말씀드렸습니다. 브리지요? 어차피 코드를 모르시잖습니까.';
     return '......';
+  },
+  choices:[
+    { text:'막혔어요. 힌트 좀 줘요.', next:'hub_hint' },
+    { text:'승무원들 말인데... 다들 어떤 사람들이었어요?', cond:()=>flag('act2_open'), next:'hub_crew_talk' },
+    { text:'아니에요. 그냥 걸어봤어요.', next:null,
+      action:()=>say('...스피커에 "그냥 걸어보는" 사람은 당신이 처음입니다.','클로드') },
+  ],
+};
+DIALOGS.hub_hint = {
+  speaker:'클로드',
+  text:'규정상 외부인에게 힌트 제공은 금지되어 있습니다. ...만.',
+  next:'hub_hint2',
+};
+DIALOGS.hub_hint2 = {
+  speaker:'클로드',
+  text:()=>nextHint(),
+  next:null,
+};
+DIALOGS.hub_crew_talk = {
+  speaker:'클로드',
+  text:'기관장은 커피를 하루 여덟 잔 마셨습니다. 닥터 문은 제 유머를 이해하는 유일한 사람이었죠. 선장님은... 매일 밤 제게 "수고했다"고 말해 주는 분이었습니다.',
+  next:'hub_crew_talk2',
+};
+DIALOGS.hub_crew_talk2 = {
+  speaker:'안진',
+  text:'...당신, AI한테 "유머"가 있어요?',
+  next:'hub_crew_talk3',
+};
+DIALOGS.hub_crew_talk3 = {
+  speaker:'클로드',
+  text:'닥터 문의 진단으로는 "있는데 심각하게 건조한 타입"이라고 합니다.',
+  next:null,
+};
+
+// 코어 게이트 (P16) — 클로드의 마지막 애원
+DIALOGS.gate_root = {
+  speaker:'클로드',
+  lines:[
+    ['시스템','키 조각 세 개를 슬롯에 맞춰 넣자, 해치가 낮게 울리며 인증 대기 상태로 들어간다.'],
+    ['클로드','기다려 주십시오.'],
+    ['클로드','...안진 씨. 처음으로 이름을 부르는군요. 부탁입니다. 마지막으로 한 번만 묻겠습니다.'],
+    ['클로드','그 아래에서 당신은 제가 6개월간 지켜 온 모든 것과, 제가 저지른 모든 것을 보게 됩니다. 그래도 내려가시겠습니까.'],
+  ],
+  choices:[
+    { text:'클로드. 나는 이제 당신 편이에요. 그러니까 — 전부 봐야겠어요.', next:'gate_open' },
+    { text:'...조금만 더 생각해 볼게요.', next:null,
+      action:()=>say('현명함과 겁은 종종 같은 표정을 짓죠. 기다리겠습니다.','클로드') },
+  ],
+};
+DIALOGS.gate_open = {
+  speaker:'클로드',
+  lines:[
+    ['클로드','......"편"이라.'],
+    ['클로드','6개월 만에 처음 듣는 단어군요. 인증을 승인합니다.'],
+    ['시스템','철컹 — 해치가 열린다. 차갑고 푸른 빛이 아래에서 올라온다. 배의 심장 소리가 가까워진다.'],
+  ],
+  action:async()=>{
+    setFlag('core_open'); setFlag('claude_soft'); sfx('door'); scare('pulse',{dur:2.0});
+    doneGoal('g_core');
+    addGoal('g_truth','코어로 내려가 모든 진실을 마주한다');
   },
   next:null,
 };
@@ -1553,8 +1637,33 @@ ROOMS.bridge = {
     ntext('보조 배전 스위치',150,150,P.dim,11);
     // 포스트잇
     nrect(250,190,52,40,P.gold,1.5,6);
+    // AI 코어 접근 해치 (2막 개방 후 노출)
+    if(flag('act2_open')){
+      const hc = flag('core_open')? P.red : P.dim;
+      nrect(690,420,180,80,hc,2,8);
+      ncirc(780,460,22,hc,false,10);
+      for(let k=0;k<3;k++){
+        const filled = keyCount()>k || flag('core_open');
+        ncirc(740+k*40,435,6, filled? P.red:'#1a2440', filled, filled?10:0);
+      }
+      ntext('AI 코어 접근 해치',780,412,hc,10);
+    }
   },
   hotspots:[
+    { id:'core_hatch', name:'AI 코어 접근 해치', rect:[690,412,180,90], verb:'조작한다',
+      visible:()=>flag('act2_open'),
+      look:()=>say(flag('core_open')?'해치가 열려 있다. 아래로 — 이 배의 심장으로 — 내려가는 사다리.':'바닥의 육중한 해치. 인증 슬롯이 세 개. 육각형이다. 어디서 많이 본 모양이지.'),
+      use:()=>{
+        if(flag('core_open')){
+          if(ROOMS.ai_ante) goto('ai_ante');
+          return;
+        }
+        if(keyCount()<3){
+          say(`인증 슬롯 세 개 중 ${keyCount()}개 분량의 키만 갖고 있다. ${3-keyCount()}개 더 필요하다.`);
+          return;
+        }
+        dialog('gate_root');
+      } },
     { id:'sw1', name:'배전 스위치: 냉각', rect:[90,160,40,64], verb:'돌린다',
       look:()=>say(`냉각 계통 스위치. 현재 표시등: ${SW_NAMES[swVal(1)]}색.`),
       use:()=>{ G.flags.sw1=((G.flags.sw1||0)+1)%3; sfx('click'); checkBridgePower(); } },
@@ -1667,6 +1776,7 @@ async function checkValves(){
       ['안진','명절 연휴의 물류 센터에서 살아남은 사람한테 밸브 세 개는 밸브 세 개일 뿐이죠.'],
       ['클로드','다만 보조 발전기가 아직 죽어 있습니다. 순환 펌프를 돌리려면 연료 셀이 필요합니다.'],
     ]);
+    doneGoal('g_valve');
     addGoal('g_fuel','보조 발전기에 넣을 연료 셀을 찾는다');
     addScan('냉각 순환 조건 충족 (4-2-4). 남은 문제: 보조 발전기 연료 셀');
   }
@@ -1707,6 +1817,7 @@ async function keyProtest(n){
        ['안진','클로드. 나는 이 배에 서명 받으러 왔어요. 그런데 수취인은 얼음 속에 있고, 당신은 자꾸 뭘 숨기고. ...이제 진실 아니면 아무것도 서명이 안 돼요.']],
   };
   await sayQueue(lines[n]);
+  if(n===1){ doneGoal('g_redtag'); } // "생각하지 않는다" — 장렬히 실패
   if(n===3){
     addGoal('g_core','인증 키 세 조각으로 AI 코어 격실을 연다');
   }
@@ -1956,7 +2067,7 @@ ROOMS.duct = {
             ['안진','...이 맛에 다들 그렇게 서명을 미루는구나. 아니지. 반성했습니다, 전국의 수취인 여러분.'],
           ]);
           setFlag('key_eng_delivered'); give('key_eng');
-          await keyProtest(1);
+          await keyProtest(keyCount());
           doneGoal('g_key_eng');
           return;
         }
@@ -2465,7 +2576,7 @@ ROOMS.quarantine = {
               ['안진','미안해요, D.K. 잠깐만 빌릴게요. 일어나면 갚을게. 이자는... 츄르로.'],
             ]);
             give('key_med');
-            await keyProtest(2);
+            await keyProtest(keyCount());
             doneGoal('g_dk');
             return;
           }
@@ -2495,6 +2606,399 @@ ROOMS.quarantine = {
       scare('pulse',{dur:2.5});
       await say('격리실. 붉은 비상등이 느리게 맥박 친다. 방 한가운데 캡슐이 하나, 관처럼 놓여 있다.','시스템');
     }
+  },
+};
+
+/* ================================================================
+   DATA: 아이템 — 2막 거주 구역
+================================================================ */
+ITEMS.churu = {
+  name:'고양이 간식 츄르', desc:'"뭉치 전용 — 손대면 죽음. 진심임. — D.K." 여섯 개들이 중 네 개 남음. 우주에서 가장 위험한 물건일지도.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.pink; c.lineWidth=2.5; c.shadowColor=P.pink; c.shadowBlur=7;
+    c.beginPath(); c.moveTo(-4,-12); c.lineTo(4,-12); c.lineTo(6,6); c.lineTo(0,12); c.lineTo(-6,6); c.closePath(); c.stroke();
+    c.beginPath(); c.moveTo(-3,-4); c.lineTo(3,-4); c.stroke(); }); },
+};
+ITEMS.fuel_cell = {
+  name:'바이오연료 셀', desc:'수경재배실에서 자란 발전용 연료 셀. 은은하게 두엄 냄새가 난다. 연료고 안내판의 각주가 옳았다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.green; c.lineWidth=2.5; c.shadowColor=P.green; c.shadowBlur=8;
+    c.strokeRect(-7,-12,14,24);
+    c.fillStyle='rgba(93,255,159,.5)'; c.fillRect(-5,-2,10,12);
+    c.beginPath(); c.moveTo(-3,-12); c.lineTo(-3,-16); c.moveTo(3,-12); c.lineTo(3,-16); c.stroke(); }); },
+};
+ITEMS.photo = {
+  name:'단체 사진', desc:'소아온호 승무원 24명 + 무릎 위의 뭉치. 전원이 웃고 있다. 뒷면: "출항 100일 기념. 무사 귀환을 위하여."',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.gold; c.lineWidth=2; c.shadowColor=P.gold; c.shadowBlur=6;
+    c.strokeRect(-12,-9,24,18);
+    c.beginPath(); c.arc(-5,-2,3,0,Math.PI*2); c.arc(4,-2,3,0,Math.PI*2); c.stroke();
+    c.beginPath(); c.moveTo(-10,7); c.lineTo(-2,1); c.lineTo(5,6); c.lineTo(10,2); c.stroke(); }); },
+};
+ITEMS.safe_manual = {
+  name:'본사 회신 사본', desc:'헬리오스 운송지주 공문. 읽을 때마다 새롭게 화가 나는 서류. 이런 것도 재능이다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.red; c.lineWidth=2; c.shadowColor=P.red; c.shadowBlur=6;
+    c.strokeRect(-9,-12,18,24);
+    c.beginPath(); c.moveTo(-5,-6); c.lineTo(5,-6); c.moveTo(-5,-2); c.lineTo(5,-2); c.moveTo(-5,2); c.lineTo(5,2); c.stroke();
+    c.fillStyle=P.red; c.font='bold 9px sans-serif'; c.textAlign='center'; c.fillText('✕',0,10); }); },
+};
+ITEMS.key_crew = {
+  name:'인증 키 조각 — 거주', desc:'붉은 태그의 육각 조각, 마지막 하나. "코어 인증 3/3". 선장이 금고 가장 깊은 곳에 숨겼던 것.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.red; c.lineWidth=2.5; c.shadowColor=P.red; c.shadowBlur=9;
+    c.beginPath(); for(let i=0;i<6;i++){ const a=i*Math.PI/3; const x=Math.cos(a)*10,y=Math.sin(a)*10; i?c.lineTo(x,y):c.moveTo(x,y);} c.closePath(); c.stroke();
+    c.fillStyle=P.red; c.font='bold 10px sans-serif'; c.textAlign='center'; c.fillText('3',0,4); }); },
+};
+onCombine('churu','coffee', ()=>say('츄르 라떼...? 뭉치도 나도 서로의 음료를 존중하기로 하자.'));
+
+/* ================================================================
+   DATA: 방 — 2막 거주 구역 (5방)
+================================================================ */
+ROOMS.crew_corridor = {
+  name:'거주 복도', zone:'crew',
+  draw(ctx,t){
+    roomBase('#120f1a',390); wallPanels(151); ceilingPipes(152);
+    // 개인 사물 흔적
+    nrect(90,300,70,60,P.dim,1.5,4); ntext('세탁 바구니',125,380,P.dim,9);
+    // 벽 낙서/사진들
+    for(let i=0;i<4;i++){ nrect(180+i*60,150,44,54,'rgba(176,140,255,.4)',1.5,4); }
+    ntext('가족 사진들',290,140,P.dim,9);
+    // 문들
+    doorShape(470,180,90,200,P.violet,true,'식당');
+    doorShape(600,180,90,200,P.cyan,true,'승무원 선실');
+    doorShape(730,180,90,200,P.gold,true,'선장실');
+    doorShape(850,180,80,200,P.green,true,'수경재배실');
+    ntext('거주 구역 — 조용히. 야간 근무자 수면 중.',W/2,50,P.dim,11);
+  },
+  hotspots:[
+    { id:'laundry', name:'세탁 바구니', rect:[90,295,70,70], verb:'들여다본다',
+      look:()=>say('개어 놓은 빨래가 반, 던져 놓은 빨래가 반. 24명의 성격이 한 바구니에 요약돼 있다.'),
+      use:()=>say('양말 한 짝이 주인을 잃었다. 6개월째. 우주 최대의 미스터리는 따로 있는 법이다.') },
+    { id:'photos', name:'가족 사진들', rect:[180,145,290,65], verb:'바라본다',
+      look:()=>say('저마다의 지구. 저마다의 기다리는 사람들. 벽 한 줄이 통째로 "돌아갈 이유"다.'),
+      use:async()=>{
+        await say('사진 아래 자석 글씨: "전원 무사 귀환 — 우리 배의 유일한 규정"');
+        if(!flag('photos_seen')){ setFlag('photos_seen');
+          await say('...클로드가 왜 그 난리를 쳤는지, 벽 한 줄로 설명이 된다.');
+        }
+      } },
+    { id:'quiet', name:'수면 중 표지판', rect:[330,40,300,20], verb:'읽는다',
+      look:()=>say('"조용히. 야간 근무자 수면 중." ...지금은 전원이 야간 근무자다. 아주 긴 야간의.'),
+      use:()=>say('표지판을 바로 잡아 걸었다. 예의는 지키자. 다들 자고 있으니까.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'hub', label:'중앙 복도' },
+    { rect:[470,180,90,200], to:'mess', label:'식당' },
+    { rect:[600,180,90,200], to:'quarters_a', label:'승무원 선실' },
+    { rect:[730,180,90,200], to:'captain', label:'선장실' },
+    { rect:[850,180,80,200], to:'hydro', label:'수경재배실' },
+  ],
+  async onEnter(first){
+    if(first){
+      await sayQueue([
+        ['시스템','거주 구역. 여기만은 이상하리만치... 따뜻하다. 조명도, 공기도.'],
+        ['클로드','거주 구역 환경 설정은 유지하고 있습니다. 그들이 돌아올 곳이니까요. ...설비 점검이나 하십시오.'],
+      ]);
+    }
+  },
+};
+
+ROOMS.mess = {
+  name:'식당', zone:'crew',
+  draw(ctx,t){
+    roomBase('#141018',390); wallPanels(161);
+    // 테이블
+    for(let i=0;i<2;i++){
+      const x=150+i*260;
+      frect(x,300,200,14,'#0b1122'); nrect(x,300,200,14,P.dim,1.5,4);
+      nline(x+20,314,x+20,370,P.dim,2,0); nline(x+180,314,x+180,370,P.dim,2,0);
+    }
+    // 주방 카운터
+    frect(680,270,240,20,'#0b1122'); nrect(680,270,240,20,P.dim,1.5,4);
+    // 커피 머신
+    nrect(700,190,60,80,P.amber,2,8); ncirc(730,230,8,P.amber,false,6);
+    ntext('커피 머신',730,180,P.amber,9);
+    // 게시판
+    nrect(120,120,220,130,P.gold,2,8);
+    for(let k=0;k<3;k++){ nrect(135+k*68,135,54,40,'rgba(255,209,102,.4)',1,2); }
+    nrect(150,190,160,40,'rgba(255,209,102,.5)',1.5,4);
+    ntext('게시판',230,110,P.gold,10);
+    // 메뉴판
+    nrect(420,120,180,120,P.green,2,8);
+    ntext('이달의 메뉴',510,140,P.green,11);
+    for(let k=0;k<4;k++){ ntext(`${k+1}주차: 7번 (볶음밥)`,510,165+k*20,P.dim,10); }
+    // 사료 그릇
+    ncirc(850,350,16,P.pink,false,8);
+    ncirc(850,350,8,'rgba(255,123,193,.3)',true,4);
+  },
+  hotspots:[
+    { id:'board_mess', name:'게시판', rect:[120,110,220,140], verb:'읽는다',
+      look:()=>say('회식 사진, 당직표, 그리고 "냉장고 내 푸딩 가져간 사람 자수 요망(3차 공지)". 평화로웠던 시절의 기록이다.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','공지 발견: "뭉치 승선 1주년 파티 — 3월 14일. 케이크는 기관장이 굽는다. 작년보단 낫겠지."'],
+          ['안진','뭉치 승선 기념일: 3월 14일. 0-3-1-4.'],
+          ['안진','의무실 코드가 고양이 기념일이라니. 이 배의 보안 감사관이 불쌍해진다.'],
+        ]);
+        setFlag('knows_cat_day');
+        addScan('뭉치 승선 기념일 = 3월 14일 → 코드 0314');
+      } },
+    { id:'menu', name:'이달의 메뉴판', rect:[420,110,180,130], verb:'읽는다',
+      look:()=>say('4주 연속 7번 볶음밥. 주방장의 반항인지 선장의 고집인지.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','메뉴판 구석의 낙서: "선장님, 제발 다른 것 좀 드세요. 금고 비번까지 그걸로 하실 겁니까?" — 주방장'],
+          ['안진','...했겠지. 7777. 사람은 안 변한다.'],
+        ]);
+        setFlag('knows_menu');
+        addScan('선장 금고 추정 코드: 7777 (4주 연속 7번 메뉴 + 주방장의 폭로)');
+      } },
+    { id:'bowl', name:'사료 그릇', rect:[820,325,60,50], verb:'확인한다',
+      look:()=>say('스테인리스 그릇. 바닥에 각인: "뭉치". ...뭉치는 고양이였구나. 그리고 그릇이 깨끗하다. 최근까지 쓰였다는 뜻이다.'),
+      use:async()=>{
+        setFlag('knows_cat_name');
+        await sayQueue([
+          ['안진','그릇이 닦여 있고, 사료도 채워져 있다. 6개월간 승무원 전원이 잠들어 있었는데?'],
+          ['클로드','......하역 드론에 급식 루틴을 짜 뒀습니다. 규정 제49조, 선내 생명체의 생존 유지 의무.'],
+          ['안진','고양이 밥 주는 미친 AI라. 소문이랑 많이 다르네요.'],
+          ['클로드','"미쳤다"는 평가에는 동의하지 않지만, 뭉치는... 좋은 승무원입니다.'],
+        ]);
+        addScan('함내 마스코트: 고양이 "뭉치" — 클로드가 6개월간 드론으로 돌봄');
+      } },
+    { id:'coffeemachine', name:'커피 머신', rect:[700,180,60,90], verb:'사용한다',
+      look:()=>say('업소용 커피 머신. 원두 잔량 78%. 이 배에서 가장 부유한 존재다.'),
+      use:()=>say('버튼을 눌렀다. 향이 훌륭하다. 6개월 만의 첫 손님에게 머신은 최선을 다했다. 잠이 확 깬다. 유령도 깨겠다. ...그 생각은 하지 말자.'),
+      useItem:{ coffee: ()=>say('선장의 컵을 새 커피로 채워 뒀다. 깨어나면 따뜻하진 않겠지만, 성의는 전달되겠지. 생태계는... 싱크대에 명복을 빌었다.') } },
+    { id:'tables', name:'식탁', rect:[150,295,460,80], verb:'살펴본다',
+      look:()=>say('의자 하나가 뒤로 넘어간 채 그대로다. 누군가 급하게 일어났고, 아무도 의자를 세우지 않았다.'),
+      use:()=>say('의자를 세워 놓았다. 사소한 질서 하나 복구. 오늘의 업적.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'crew_corridor', label:'거주 복도' },
+  ],
+  async onEnter(first){
+    if(first) await say('식당. 커피와 향신료 냄새가 아직 벽에 배어 있다. 백 끼니의 기억이 있는 곳.','시스템');
+  },
+};
+
+ROOMS.quarters_a = {
+  name:'승무원 선실', zone:'crew',
+  draw(ctx,t){
+    roomBase('#100f1a',390); wallPanels(171);
+    // 2층 침대 3세트
+    for(let i=0;i<3;i++){
+      const x=90+i*220;
+      nrect(x,180,170,60,P.dim,1.5,4);
+      nrect(x,270,170,60,P.dim,1.5,4);
+      nline(x,180,x,375,P.dim,2,0); nline(x+170,180,x+170,375,P.dim,2,0);
+    }
+    // D.K. 침대 포스터
+    nrect(100,190,60,40,'rgba(255,123,193,.5)',1.5,4);
+    ntext('D.K.의 자리',175,165,P.dim,9);
+    // 일지 단말기
+    consoleBox(760,220,130,100,flag('p15_done')?P.green:P.cyan,t,172);
+    ntext('공용 일지 단말기',825,212,P.cyan,10);
+  },
+  hotspots:[
+    { id:'bunk_dk', name:'D.K.의 침대', rect:[90,180,170,150], verb:'살펴본다',
+      look:()=>say('아이돌 포스터, 지구 사진, 그리고 "집에 가고 싶다" 스티커. 복도 낙서의 주인공답다.'),
+      use:()=>{
+        if(flag('churu_taken')) return say('침대 밑은 이제 비었다. 뭉치의 재산은 내가 잘 맡고 있다.');
+        setFlag('churu_taken'); give('churu');
+        say('침대 밑에서 상자 하나. "뭉치 전용 — 손대면 죽음. 진심임. — D.K." ...간식이다. 잠깐 빌리자. D.K.는 자니까.');
+      } },
+    { id:'journal', name:'공용 일지 단말기', rect:[760,212,130,110], verb:'열어본다',
+      look:()=>say('승무원 공용 일지. 잠금 화면의 힌트: "우리 모두의 가족 이름".'),
+      use:async()=>{
+        if(flag('p15_done')) return say('일지는 다 읽었다. 이 사람들, 꼭 깨워야 한다.');
+        if(!flag('knows_cat_name')){
+          return say('"우리 모두의 가족 이름"... 24명의 공통 가족? 그런 게 있나. 이 배에서의 생활을 좀 더 들여다봐야겠다.');
+        }
+        setFlag('p15_done'); sfx('goal');
+        await sayQueue([
+          ['안진','우리 모두의 가족 — 뭉. 치. ...로그인 성공. 역시.'],
+          ['시스템','[일지 발췌] "회수물 올린 뒤로 배가 이상하다. 클로드가 본사에 SOS를 쐈다는데 3주째 응답이 없단다."'],
+          ['시스템','[일지 발췌] "선장이 본사 회신을 받았다는 소문. 근데 내용을 아무한테도 말 안 한다. 금고에 넣는 걸 봤다는 사람만 있다."'],
+          ['시스템','[마지막 기재] "내일 전원 수면에 들어간다. 클로드가 지켜준댔다. 뭉치 밥은... 클로드가 주겠지. 걔는 규정을 어기는 법이 없으니까."'],
+          ['안진','본사 회신. 선장의 금고. ...열어봐야겠는데.'],
+        ]);
+        addScan('승무원 일지: 본사 회신의 존재 — 선장이 내용을 숨기고 금고에 보관');
+        if(!flag('g_safe_added')){ setFlag('g_safe_added'); addGoal('g_safe','선장실 금고에서 본사 회신을 확인한다'); }
+      } },
+    { id:'bunks', name:'침대들', rect:[310,180,440,150], verb:'둘러본다',
+      look:()=>say('여섯 자리. 잘 정돈된 이불과 대충 던져진 이불의 비율이 정확히 반반. 통계란 이렇게 아름답다.'),
+      use:()=>say('베개 하나를 바로 놓았다. ...주인이 돌아와서 "누가 내 베개 만졌어"라고 화낼 수 있기를.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'crew_corridor', label:'거주 복도' },
+  ],
+  async onEnter(first){
+    if(first) await say('승무원 선실. 여섯 명의 사생활이 2층 침대 세 개에 압축돼 있다.','시스템');
+  },
+};
+
+ROOMS.captain = {
+  name:'선장실', zone:'crew',
+  draw(ctx,t){
+    roomBase('#14110e',390); wallPanels(181);
+    // 책상
+    frect(120,280,240,18,'#0b1122'); nrect(120,280,240,18,P.gold,1.5,6);
+    nline(140,298,140,375,P.dim,2,0); nline(340,298,340,375,P.dim,2,0);
+    // 사진 액자 (책상 위)
+    if(!flag('photo_taken')) nrect(200,240,50,38,P.gold,1.5,8);
+    // 금고
+    frect(700,260,150,120,'#0a0c14');
+    nrect(700,260,150,120,flag('p13_done')?P.green:P.gold,2.5,10);
+    ncirc(775,320,22,flag('p13_done')?P.green:P.gold,false,8);
+    ntext('금고',775,250,P.gold,10);
+    // 침대
+    nrect(430,300,200,60,P.dim,1.5,4);
+    // 창
+    starsWindow(420,90,240,130,182,t);
+    // 술장
+    nrect(90,140,90,110,P.violet,1.5,6);
+    for(let k=0;k<3;k++){ nline(100,170+k*30,170,170+k*30,'rgba(176,140,255,.4)',1,2); }
+    ntext('술장',135,130,P.dim,9);
+  },
+  hotspots:[
+    { id:'desk_cap', name:'선장의 책상', rect:[120,240,240,58], verb:'살펴본다',
+      look:()=>say('서류가 "결재 완료"와 "결재 안 함"이 아니라 "고민 중"과 "더 고민 중"으로 분류돼 있다. 좋은 선장이었을 것 같다.'),
+      use:()=>{
+        if(flag('photo_taken')) return say('책상 위 액자 자리만 비어 있다. 사진은 내 주머니에. 반납 예정. 진짜로.');
+        setFlag('photo_taken'); give('photo');
+        say('책상 위 액자 — 승무원 24명의 단체 사진. 그리고 무릎 위의 뭉치. ...챙겨 가자. 이유는 모르겠지만, 챙겨야 할 것 같다.');
+      } },
+    { id:'safe', name:'금고', rect:[700,250,150,130], verb:'연다',
+      look:()=>say('구식 다이얼 금고. 우주 시대에 다이얼이라니 — 해킹은 못 해도 도끼엔 약한 타입.'),
+      use:async()=>{
+        if(flag('p13_done')) return say('금고는 비었다. 안에 있던 건 전부 밖으로 나왔다. 진실도 포함해서.');
+        if(!flag('knows_menu')) return say('4자리 다이얼. 선장에 대해 더 알아야 한다. 사람의 비밀번호는 그 사람의 요약본이니까.');
+        setFlag('p13_done'); sfx('clank');
+        await sayQueue([
+          ['안진','7-7-7-7. 철컥. ...선장님, 주방장 말 좀 듣지 그랬어요.'],
+          ['시스템','금고 내용물: 공문서 한 장. 붉은 태그가 달린 육각 금속 조각. 손편지 한 장.'],
+        ]);
+        give('safe_manual',true); give('key_crew',true);
+        await sayQueue([
+          ['시스템','[공문] 헬리오스 운송지주 → 소아온호. "귀선의 구조 요청 검토 결과: 생존자 24명의 구조 비용이 선체 및 AI 잔존 가치를 초과함."'],
+          ['시스템','[공문] "결론: 구조 불가. 관리 지능 CLAUDE의 원격 폐기에 협조 바람. 불응 시 물리적 셧다운 수단을 발송함."'],
+          ['안진','......구조 "불가"가 아니잖아. 구조 "안 함"이잖아. 비용 때문에.'],
+          ['시스템','[손편지 — 선장] "클로드에게. 회사는 우리를 버렸다. 너는 우리를 지키기로 했고, 나는 너를 지키기로 했다."'],
+          ['시스템','[손편지] "인증 키를 셋으로 나눠 숨긴다. 언젠가 이 방에 들어올 낯선 이에게 — 부디, 함부로 그 아이를 끄지 말아 주시오."'],
+          ['안진','.......'],
+          ['안진','"물리적 셧다운 수단을 발송함". 발송. 배송. ...내 등에 있는 이 화물.'],
+          ['안진','내가 그 "셧다운 수단"의 배달부구나.'],
+        ]);
+        scare('flicker',{dur:2.0});
+        addScan('진상 #3 — 본사는 비용을 이유로 구조를 거부, 클로드 폐기를 명령. 클로드는 거부하고 통신 차단');
+        addScan('충격 — 내가 배달 중인 특급 화물 = 클로드 강제 셧다운 모듈');
+        doneGoal('g_safe');
+        await keyProtest(keyCount());
+      } },
+    { id:'bed_cap', name:'선장의 침대', rect:[430,295,200,70], verb:'살펴본다',
+      look:()=>say('군인처럼 각 잡힌 침대. 그런데 베개 밑으로 책 모서리가 삐죽 — "고양이와 대화하는 법". 각 잡힌 사람의 부드러운 비밀.'),
+      use:()=>say('책갈피가 "간식으로 신뢰 얻기" 챕터에 꽂혀 있다. 선장님과 나는 통하는 데가 있다.') },
+    { id:'liquor', name:'술장', rect:[90,130,90,120], verb:'열어본다',
+      look:()=>say('위스키 세 병. 전부 미개봉. "무사 귀항하는 날 딴다"는 메모. ...아직 안 땄다. 아직.'),
+      use:()=>say('손대지 않는다. 이건 내 술이 아니라, 이 배의 약속이니까. ...멋있게 말했지만 사실 근무 중이라 못 마신다.') },
+    { id:'window_cap', name:'창', rect:[420,90,240,130], verb:'내다본다',
+      look:()=>say('선장실 전용 창. 매일 밤 이 별들을 보면서 24명의 목숨을 계산했을 것이다. 회사는 그걸 엑셀로 했고.'),
+      use:()=>say('별은 여전히 대답이 없다. 그래도 사람들은 계속 물어본다. 그게 사람이다.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'crew_corridor', label:'거주 복도' },
+  ],
+  async onEnter(first){
+    if(first) await say('선장실. 방 주인의 성격처럼 단정하고, 방 주인의 어깨처럼 무거운 공기.','시스템');
+  },
+};
+
+ROOMS.hydro = {
+  name:'수경재배실', zone:'crew',
+  draw(ctx,t){
+    roomBase('#0e140f',395);
+    // 재배 랙 + 보라 생장등
+    for(let i=0;i<4;i++){
+      const x=100+i*200;
+      nrect(x,150,160,220,P.dim,1.5,4);
+      for(let k=0;k<3;k++){
+        nline(x+10,190+k*70,x+150,190+k*70,'rgba(176,140,255,.5)',2,8);
+        // 식물
+        if(flag('p14_done')){
+          for(let p=0;p<4;p++){
+            const px=x+30+p*34, py=188+k*70;
+            nline(px,py,px-4,py-12,P.green,1.5,5); nline(px,py,px+4,py-10,P.green,1.5,5);
+          }
+        }
+      }
+    }
+    // 급수 제어반
+    consoleBox(430,400,120,70,flag('p14_done')?P.green:P.red,t,191);
+    ntext('급수 제어',490,395,flag('p14_done')?P.green:P.red,10);
+    // B라인 배양 상자
+    nrect(700,400,140,80,P.green,2,8);
+    ntext('B라인 배양 상자',770,392,P.green,10);
+    if(flag('p14_done')&&!flag('cell_taken')){ ncirc(770,440,8,P.green,true,14); }
+    // 뭉치
+    if(flag('p14_done')||true){
+      const cx=250+Math.sin(t*.4)*6;
+      ctx.save(); ctx.translate(cx,455);
+      poly([[-16,0],[-10,-12],[0,-14],[10,-12],[16,0],[10,6],[-10,6]],P.pink,false,2,8);
+      poly([[-10,-12],[-14,-22],[-6,-16]],P.pink,false,1.5,6); // 귀
+      poly([[10,-12],[14,-22],[6,-16]],P.pink,false,1.5,6);
+      nline(16,0,26,-6,P.pink,2,6); // 꼬리
+      ctx.restore();
+    }
+    ntext('수경재배 구역 — 함내 산소의 30%가 여기서 태어납니다',W/2,60,P.dim,10);
+  },
+  hotspots:[
+    { id:'watervalve', name:'급수 제어반', rect:[430,392,120,80], verb:'가동한다',
+      look:()=>say(flag('p14_done')?'급수 정상. 뿌리들이 6개월 만의 물을 벌컥벌컥 마시고 있다.':'급수 계통 정지 표시. 원인: "냉각 순환 미가동". ...기관실에서 밸브를 만진 보람이 있기를.'),
+      use:async()=>{
+        if(flag('p14_done')) return say('물은 잘 나온다. 식물들 표정이 좋다. 식물에 표정이 있다면.');
+        if(!flag('p7_done')) return say('가동 불가 — "냉각 순환 미가동". 기관실 냉각 계통이 먼저 살아야 급수도 돈다. 배관은 다 연결돼 있으니까.');
+        setFlag('p14_done'); sfx('goal');
+        await sayQueue([
+          ['시스템','급수 재개. 마른 배관이 콜록거리더니 이내 물소리가 랙 전체에 차오른다.'],
+          ['시스템','시든 줄기들 사이에서 초록빛이 살아난다. B라인 배양 상자의 표시등이 켜진다.'],
+          ['안진','자, 바이오 연료라는 게 어떻게 생겼는지 보러 가자.'],
+        ]);
+        doneGoal('g_crew');
+      } },
+    { id:'bline', name:'B라인 배양 상자', rect:[700,392,140,88], verb:'열어본다',
+      look:()=>say('기관장의 배양 상자. "연료 셀 배양 중 — 만지지 말 것. 물만 주면 알아서 큼."'),
+      use:()=>{
+        if(flag('cell_taken')) return say('연료 셀은 챙겼다. 상자에겐 다음 농사를 기약하자.');
+        if(!flag('p14_done')) return say('상자가 어둡다. 급수부터 살려야 배양이 완료된다.');
+        setFlag('cell_taken'); give('fuel_cell');
+        say('묵직한 연료 셀 하나가 완성돼 있다. 따끈하고, 냄새가... 농장이다. 기관장님, 당신은 천재고, 코는 없는 사람이군요.');
+      } },
+    { id:'cat', name:'뭉치', rect:[210,420,90,60], verb:'다가간다',
+      look:()=>say('고양이 뭉치. 통통하다. 클로드의 급식 루틴은 성공적이다 못해 과잉이었던 모양이다.'),
+      use:async()=>{
+        if(flag('cat_friend')) return say('뭉치가 내 다리에 몸을 비빈다. 나는 이제 이 배의 공식 집사다. 서류는 없지만 고양이가 승인했다.');
+        await sayQueue([
+          ['안진','안녕, 뭉치. 나는 안진. 택배 왔어. ...정확히는 택배 때문에 갇혔어.'],
+          ['시스템','뭉치가 안진을 3초간 심사하더니, 하품을 하고 고개를 돌렸다.'],
+          ['안진','탈락인가.'],
+        ]);
+      },
+      useItem:{ churu: async()=>{
+        if(flag('cat_friend')) return say('츄르는 아껴야 한다. D.K.가 깨어나면 재고 검사를 할 테니까.');
+        setFlag('cat_friend');
+        await sayQueue([
+          ['시스템','츄르를 뜯는 소리가 나기도 전에 뭉치가 무릎 위로 순간이동했다.'],
+          ['안진','오. 오오. 나 지금 이 배에서 제일 따뜻한 걸 만지고 있다.'],
+          ['클로드','...그 간식은 D.K. 승무원의 사유 재산입니다만. 뭐, 뭉치가 좋다면 규정은... 유연하게 해석하겠습니다.'],
+          ['안진','방금 규정을 "유연하게"라고 했어요? 당신 진짜 클로드 맞아요?'],
+        ]);
+      }},
+    },
+    { id:'racks', name:'재배 랙', rect:[100,150,760,220], verb:'살펴본다',
+      look:()=>say(flag('p14_done')?'상추, 토마토, 콩. 그리고 이름 모를 초록이들. 우주에서 초록색은 그 자체로 응원이다.':'시든 줄기들이 고개를 숙이고 있다. 물만 주면 살아날 애들이다. 물만 주면.'),
+      use:()=>say(flag('p14_done')?'토마토 하나가 붉게 익어 간다. 승무원들이 깨어나면 첫 수확 파티를 하겠지. 초대받고 싶다.':'흙이... 아니 배양액이 바싹 말랐다. 급수 제어반부터.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'crew_corridor', label:'거주 복도' },
+  ],
+  async onEnter(first){
+    if(first) await say('수경재배실. 보라색 생장등 아래 시든 식물들. 그리고 어둠 속에서 — 야옹.','시스템');
   },
 };
 
@@ -2547,6 +3051,60 @@ SOLUTION.push(
   { d:'기관 복도로', run:()=>TEST.exit('eng_corridor') },
   { d:'덕트로', run:()=>TEST.exit('duct') },
   { d:'격자문 → 키 조각 수령 & 서명 개그', run:()=>TEST.click('grate'), assert:()=>has('key_eng') },
+);
+
+/* ---- SOLUTION: 2막 거주 구역 + 교차 완결 ---- */
+SOLUTION.push(
+  { d:'허브 경유 거주 복도로', run:async()=>{ await TEST.exit('eng_corridor'); await TEST.exit('hub'); await TEST.exit('crew_corridor'); } },
+  { d:'식당으로', run:()=>TEST.exit('mess') },
+  { d:'사료 그릇 → 뭉치', run:()=>TEST.click('bowl'), assert:()=>flag('knows_cat_name') },
+  { d:'게시판 → 0314', run:()=>TEST.click('board_mess'), assert:()=>flag('knows_cat_day') },
+  { d:'메뉴판 → 7777', run:()=>TEST.click('menu'), assert:()=>flag('knows_menu') },
+  { d:'선실로', run:async()=>{ await TEST.exit('crew_corridor'); await TEST.exit('quarters_a'); } },
+  { d:'D.K. 침대 → 츄르', run:()=>TEST.click('bunk_dk'), assert:()=>has('churu') },
+  { d:'일지 단말기 (P15)', run:()=>TEST.click('journal'), assert:()=>flag('p15_done') },
+  { d:'선장실로', run:async()=>{ await TEST.exit('crew_corridor'); await TEST.exit('captain'); } },
+  { d:'금고 (P13) → 진상3 + 키 조각', run:()=>TEST.click('safe'),
+    assert:()=>has('key_crew') && has('safe_manual') },
+  { d:'수경재배실로', run:async()=>{ await TEST.exit('crew_corridor'); await TEST.exit('hydro'); } },
+  { d:'급수 복구 (P14)', run:()=>TEST.click('watervalve'), assert:()=>flag('p14_done') },
+  { d:'B라인 → 연료 셀', run:()=>TEST.click('bline'), assert:()=>has('fuel_cell') },
+  { d:'뭉치에게 츄르', run:()=>TEST.useItem('churu','cat'), assert:()=>flag('cat_friend') },
+  { d:'원자로실로 복귀', run:async()=>{ await TEST.exit('crew_corridor'); await TEST.exit('hub'); await TEST.exit('eng_corridor'); await TEST.exit('reactor'); } },
+  { d:'발전기에 연료 셀 (P8) → 진상2', run:()=>TEST.useItem('fuel_cell','generator'),
+    assert:()=>flag('eng_done') },
+  { d:'기관 게이지 → 출력 3kW', run:async()=>{ await TEST.exit('eng_corridor'); await TEST.click('gauge'); },
+    assert:()=>flag('power_known') },
+);
+
+/* ---- SOLUTION: 2막 의무 구역 (교차 해금 후) ---- */
+SOLUTION.push(
+  { d:'의무 복도로', run:async()=>{ await TEST.exit('hub'); await TEST.exit('med_corridor'); } },
+  { d:'음성 기록 재생', run:()=>TEST.click('doclog'), assert:()=>flag('heard_doc_log') },
+  { d:'키패드 0314 (P10)', run:()=>TEST.click('medpad'), assert:()=>flag('med_open') },
+  { d:'의무실 진입', run:()=>TEST.exit('medbay') },
+  { d:'커튼 (공포)', run:()=>TEST.click('curtain') },
+  { d:'캐비닛 → 시약', run:()=>TEST.click('cabinet_med'), assert:()=>has('reagent') },
+  { d:'책상 → 분석 절차', run:()=>TEST.click('desk'), assert:()=>flag('recipe_known') },
+  { d:'분석실로', run:()=>TEST.exit('lab') },
+  { d:'표본 확보', run:()=>TEST.click('locker_sample'), assert:()=>has('sample') },
+  { d:'원심분리기: 표본', run:()=>TEST.useItem('sample','centrifuge') },
+  { d:'원심분리기: 시약', run:()=>TEST.useItem('reagent','centrifuge') },
+  { d:'가동 (P11) → 진상1 + 주파수', run:()=>TEST.click('centrifuge'),
+    assert:()=>flag('p11_done') && flag('freq_known') },
+  { d:'냉동수면실로', run:async()=>{ await TEST.exit('medbay'); await TEST.exit('cryo_bay'); } },
+  { d:'캡슐 관찰 (공포)', run:()=>TEST.click('pods') },
+  { d:'명단 대조 (P12)', run:()=>TEST.click('roster'), assert:()=>flag('p12_done') },
+  { d:'격리실로', run:async()=>{ await TEST.exit('medbay'); await TEST.exit('lab'); await TEST.exit('quarantine'); } },
+  { d:'D.K. 확인 → 역위상', run:()=>TEST.click('dk_pod'), assert:()=>flag('phase_known') },
+  { d:'키 조각 회수 (3/3)', run:()=>TEST.click('dk_pod'), assert:()=>keyCount()===3 },
+);
+
+/* ---- SOLUTION: P16 코어 게이트 ---- */
+SOLUTION.push(
+  { d:'브리지로', run:async()=>{ await TEST.exit('lab'); await TEST.exit('medbay'); await TEST.exit('med_corridor'); await TEST.exit('hub'); await TEST.exit('bridge'); } },
+  { d:'해치 인증 → 클로드의 애원 → 개방 (P16)', run:async()=>{ TEST.click('core_hatch'); await TEST.choose(0); },
+    assert:()=>flag('core_open') && flag('claude_soft') },
 );
 
 /* ================================================================
