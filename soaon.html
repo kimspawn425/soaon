@@ -1752,7 +1752,15 @@ ROOMS.eng_corridor = {
       use:()=>say('앗 뜨거. ...그래, 만지지 말라고 붙여둔 스티커가 다 이유가 있는 거다.') },
     { id:'gauge', name:'냉각 계통 게이지', rect:[400,242,140,110], verb:'확인한다',
       look:()=>say(flag('eng_done')?'모든 바늘이 초록 구간에서 얌전하다. 보기 좋다.':'바늘 여섯 개가 전부 빨간 구간에서 부들부들 떨고 있다. 게이지가 이러면 안 되는 건 어느 우주나 같다.'),
-      use:()=>say(flag('eng_done')?'냉각 계통: 정상. 내가 해냈다. 이력서에 쓸 수 있을까.':'냉각수 순환 정지. 원자로실의 밸브부터 봐야 할 것 같다.') },
+      use:async()=>{
+        if(!flag('eng_done')) return say('냉각수 순환 정지. 원자로실의 밸브부터 봐야 할 것 같다.');
+        await say('냉각 계통: 정상. 내가 해냈다. 이력서에 쓸 수 있을까.');
+        if(!flag('power_known')){
+          setFlag('power_known');
+          await say('게이지 구석에 보조 수치가 떠 있다. "외부 방사 가용 출력: 3kW". ...어딘가에 쓸 데가 있을 것 같은 숫자다.');
+          addScan('기관 게이지: 외부 방사 가용 출력 = 3kW');
+        }
+      } },
     { id:'soot', name:'탄 자국', rect:[140,350,120,45], verb:'조사한다',
       look:()=>say('바닥이 새까맣게 그을렸다. 사람 형태는... 아니다. 아니라고 하자. 오늘은 그렇게 하자.'),
       use:async()=>{
@@ -2062,6 +2070,431 @@ ROOMS.workshop = {
   ],
   async onEnter(first){
     if(first) await say('공작실. 기술자들의 성역. 어질러진 정도로 보아 대단히 유능한 사람들이었다.','시스템');
+  },
+};
+
+/* ================================================================
+   DATA: 아이템 — 2막 의무 구역
+================================================================ */
+ITEMS.reagent = {
+  name:'시약 T-7', desc:'형광 초록색 액체. 라벨: "T-7 표지 시약 — 신경 활성 반응용". 흔들면 예쁘다. 흔들면 안 된다고 써 있다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.green; c.lineWidth=2.5; c.shadowColor=P.green; c.shadowBlur=8;
+    c.beginPath(); c.moveTo(-4,-12); c.lineTo(-4,-2); c.lineTo(-9,8); c.arc(0,8,9,Math.PI*.8,Math.PI*.2,true); c.lineTo(4,-2); c.lineTo(4,-12); c.stroke();
+    c.fillStyle='rgba(93,255,159,.4)'; c.beginPath(); c.arc(0,8,6,0,Math.PI*2); c.fill(); }); },
+};
+ITEMS.sample = {
+  name:'신호체 표본', desc:'밀폐 용기 속 검은 결정 파편. 가만히 보면 아주 미세하게... 떨린다. 심장 박동처럼. 보지 말자.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.violet; c.lineWidth=2.5; c.shadowColor=P.violet; c.shadowBlur=9;
+    c.strokeRect(-9,-9,18,20);
+    c.beginPath(); c.moveTo(-3,-4); c.lineTo(2,-7); c.lineTo(5,0); c.lineTo(1,6); c.lineTo(-4,3); c.closePath(); c.stroke(); }); },
+};
+ITEMS.key_med = {
+  name:'인증 키 조각 — 의무', desc:'붉은 태그의 육각 조각 두 번째. "코어 인증 2/3". D.K.가 끝까지 쥐고 있던 것.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.red; c.lineWidth=2.5; c.shadowColor=P.red; c.shadowBlur=9;
+    c.beginPath(); for(let i=0;i<6;i++){ const a=i*Math.PI/3; const x=Math.cos(a)*10,y=Math.sin(a)*10; i?c.lineTo(x,y):c.moveTo(x,y);} c.closePath(); c.stroke();
+    c.fillStyle=P.red; c.font='bold 10px sans-serif'; c.textAlign='center'; c.fillText('2',0,4); }); },
+};
+
+/* ================================================================
+   DATA: 방 — 2막 의무 구역 (5방)
+================================================================ */
+ROOMS.med_corridor = {
+  name:'의무 복도', zone:'med',
+  draw(ctx,t){
+    roomBase('#0c1618',390); wallPanels(111); ceilingPipes(112);
+    // 격리 스텐실
+    ctx.save(); ctx.globalAlpha=.7;
+    ntext('Q U A R A N T I N E',W/2,70,P.green,22);
+    ctx.restore();
+    ntext('— 이 구역은 격리 프로토콜 하에 있습니다 —',W/2,95,P.dim,10);
+    // 의무실 문 + 키패드
+    doorShape(400,170,110,210,flag('med_open')?P.green:P.red,flag('med_open'),'의무실');
+    nrect(525,230,26,42,flag('med_open')?P.green:P.gold,1.5,8);
+    // 음성 로그 단말기
+    consoleBox(120,230,120,100,P.cyan,t,113);
+    ntext('음성 기록 단말기',180,222,P.cyan,10);
+    // 소독제 디스펜서
+    nrect(700,220,40,70,P.green,1.5,6);
+    ncirc(720,300,6,'rgba(93,255,159,.5)',true,6);
+    ntext('소독제',720,210,P.dim,9);
+    // 들것
+    nrect(770,320,150,20,P.dim,1.5,4);
+    nline(790,340,790,370,P.dim,2,0); nline(900,340,900,370,P.dim,2,0);
+  },
+  hotspots:[
+    { id:'doclog', name:'음성 기록 단말기', rect:[120,222,120,110], verb:'재생한다',
+      look:()=>say('닥터 문 — 선내 의사의 음성 기록 단말기다. 재생 버튼이 닳아 있다. 혼잣말이 많은 타입.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','[음성 기록 #212 — 닥터 문] "...또 코드를 바꾸란다. 보안 감사 때문이라나. 외우기 귀찮으니 언제나처럼 — 뭉치가 온 날로 해 뒀다."'],
+          ['시스템','[음성 기록 #213] "회수물 접촉자들 수면 패턴이 이상하다. 다들 같은 꿈을 꾼단다. 같은. 꿈을."'],
+          ['안진','...뒷부분은 안 들은 걸로 하고 싶다. 아무튼 — "뭉치가 온 날". 뭉치가 누구지? 사람 이름은 아닌 것 같은데.'],
+        ]);
+        setFlag('heard_doc_log');
+        addScan('의무실 코드 힌트: "뭉치가 온 날" (닥터 문의 음성 기록)');
+        addScan('닥터 문 기록: 회수물 접촉자들이 "같은 꿈"을 꾼다고 보고');
+        if(!flag('g_med_code_added')){ setFlag('g_med_code_added'); addGoal('g_med_code','"뭉치"의 정체와 "뭉치가 온 날"을 알아낸다'); }
+      } },
+    { id:'medpad', name:'의무실 키패드', rect:[520,225,36,52], verb:'입력한다',
+      look:()=>say('4자리 키패드. 의무실이 잠긴 병원이라니, 환자 입장에선 좀 서운하겠다.'),
+      use:()=>{
+        if(flag('med_open')) return say('이미 열려 있다.');
+        if(flag('knows_cat_day')){
+          setFlag('med_open'); sfx('door'); doneGoal('g_med_code');
+          say('0-3-1-4. 뭉치 승선 기념일. 삑 — 열렸다. 이 배의 보안은 전부 고양이로 통한다.','시스템');
+        }else if(flag('heard_doc_log')){
+          say('"뭉치가 온 날"이 코드다. 뭉치가 누군지, 언제 왔는지부터 알아내야 한다. 승무원들의 생활 공간을 뒤져 볼까.');
+        }else{
+          say('4자리 코드가 필요하다. 근처에 힌트가 있을지도. 의사들은 항상 어딘가에 힌트를 남긴다. 주로 목소리로.');
+        }
+      } },
+    { id:'sanitizer', name:'소독제 디스펜서', rect:[695,215,50,90], verb:'사용한다',
+      look:()=>say('자동 소독제 디스펜서. 6개월간 아무도 안 씻은 손을 기다리고 있었다.'),
+      use:()=>say('칙. ...오. 아직 나온다. 알로에 향. 이 배에서 겪은 일 중 제일 정상적인 경험이다.') },
+    { id:'stretcher', name:'들것', rect:[770,315,150,60], verb:'살펴본다',
+      look:()=>say('접이식 들것. 시트가 구겨져 있다. 누군가 실려 갔고, 정리할 사람은 없었다.'),
+      use:()=>say('들것 손잡이에 이름표: "이송: D.K. — 목적지: 격리실". ...D.K. 복도 낙서의 그 D.K.?') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'hub', label:'중앙 복도' },
+    { rect:[400,170,110,210], to:'medbay', label:'의무실',
+      locked:()=>!flag('med_open'), lockedMsg:'잠겨 있다. 키패드가 4자리를 요구한다.' },
+  ],
+  async onEnter(first){
+    if(first){
+      await sayQueue([
+        ['시스템','의무 구역. 소독약 냄새가 6개월 묵어 시큼하다.'],
+        ['클로드','...의무 구역이군요. 조언 하나. 여기서 보게 될 것들에 대해, 너무 깊이 생각하지 마십시오.'],
+        ['안진','당신의 조언은 항상 반대로 하면 정답이더라고요.'],
+      ]);
+    }
+  },
+};
+
+ROOMS.medbay = {
+  name:'의무실', zone:'med',
+  draw(ctx,t){
+    roomBase('#0b1517',390); wallPanels(121);
+    // 진료 침대 3개
+    for(let i=0;i<3;i++){
+      const x=100+i*180;
+      nrect(x,290,140,50,P.dim,1.5,4);
+      nline(x+10,340,x+10,375,P.dim,2,0); nline(x+130,340,x+130,375,P.dim,2,0);
+    }
+    // 커튼 (세 번째 침대)
+    ctx.save();
+    ctx.fillStyle='rgba(93,255,159,.12)';
+    ctx.beginPath();
+    for(let x=440;x<=600;x+=20){ ctx.rect(x,150,12,200); }
+    ctx.fill(); ctx.restore();
+    nline(430,150,610,150,P.green,2,6);
+    ntext('커튼',520,140,P.dim,9);
+    // 의약품 캐비닛
+    nrect(680,160,120,150,P.green,2,8);
+    nline(740,170,740,300,P.green,1,4);
+    for(let k=0;k<3;k++){ nline(690,205+k*40,790,205+k*40,'rgba(93,255,159,.35)',1,2); }
+    ntext('의약품 캐비닛',740,150,P.green,10);
+    // 닥터 문 책상
+    frect(830,270,110,16,'#0b1122'); nrect(830,270,110,16,P.dim,1.5,4);
+    nline(845,286,845,370,P.dim,2,0); nline(925,286,925,370,P.dim,2,0);
+    nrect(855,235,55,32,P.cyan,1.5,6);
+    ntext('책상',885,225,P.dim,9),
+    // 심전도 모니터 (죽은 파형 → 가끔 튐)
+    consoleBox(90,170,110,70,P.cyan,t,122);
+    (()=>{ const blip=Math.sin(t*.7)>.97; nline(100,205,190,205,blip?P.green:'rgba(124,137,184,.5)',1.5,blip?8:2); })();
+  },
+  hotspots:[
+    { id:'beds', name:'진료 침대', rect:[100,290,320,60], verb:'살펴본다',
+      look:()=>say('반듯하게 정리된 침대 두 개. 사용감 없음. 이 배의 마지막 날들에 "다친" 사람은 없었다는 얘기다. 다친 게 몸이라면.'),
+      use:()=>say('시트가 각 잡혀 있다. 군대식 정리. 눕고 싶지만 지금 누우면 3년은 잘 것 같다.') },
+    { id:'curtain', name:'커튼 친 침대', rect:[430,150,180,200], verb:'걷어본다',
+      look:()=>say('세 번째 침대만 커튼이 쳐져 있다. 커튼은 원래 답을 미루는 장치다.'),
+      use:async()=>{
+        if(flag('curtain_done')) return say('빈 침대. 두 번 확인했다. 세 번째는 안 한다.');
+        setFlag('curtain_done');
+        scare('flicker',{dur:1.2});
+        await say('숨을 참고 커튼을 젖힌다 —','시스템');
+        await say('...비어 있다. 대신 침대 위에 구속대 네 개가 전부 풀린 채 늘어져 있다.','시스템');
+        scare('shadow',{y:280,rtl:false});
+        await sayQueue([
+          ['안진','구속대. 병원 침대에 구속대. 그리고 그걸 "풀고" 나간 누군가.'],
+          ['안진','......소독제나 한 번 더 짜고 와야겠다.'],
+        ]);
+        addScan('의무실 3번 침대: 구속대가 풀린 채 방치 — 환자는 스스로 나갔거나, 누군가 풀어줬다');
+      } },
+    { id:'cabinet_med', name:'의약품 캐비닛', rect:[680,150,120,160], verb:'열어본다',
+      look:()=>say('유리문 너머로 약병이 도열해 있다. 알파벳 순. 닥터 문은 정리 강박이 있었다. 동지여.'),
+      use:()=>{
+        if(flag('reagent_taken')) return say('필요한 건 챙겼다. 나머지 약은... 유통기한이 나보다 오래 살 것들이다.');
+        setFlag('reagent_taken'); give('reagent');
+        say('"T-7 표지 시약" — 분석용이다. 책상 메모에 있던 그 시약. 챙기자.');
+      } },
+    { id:'desk', name:'닥터 문의 책상', rect:[830,225,110,60], verb:'뒤져본다',
+      look:()=>say('서류가 산처럼 쌓여 있다. 의사의 책상은 어느 우주나 같다.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','메모 발견: "표본 분석 절차 — ① 표본을 원심분리기에 ② 시약 T-7 주입 ③ 가동. 순서 틀리면 처음부터. — 문"'],
+          ['안진','표본, 시약, 가동. 요리 레시피랑 비슷하네. 요리보다 폭발 확률이 높을 뿐.'],
+        ]);
+        setFlag('recipe_known');
+        addScan('분석 절차: 표본 → 시약 T-7 → 가동 (분석실 원심분리기)');
+        if(!flag('g_analyze_added')){ setFlag('g_analyze_added'); addGoal('g_analyze','분석실에서 신호체 표본을 분석한다'); }
+      } },
+    { id:'ecg', name:'심전도 모니터', rect:[90,162,110,80], verb:'들여다본다',
+      look:()=>say('아무도 연결 안 된 심전도가 켜져 있다. 평평한 선. ...방금 한 번 튀지 않았나? 아니지? 아니라고 하자.'),
+      use:()=>say('전원을 끄려다 말았다. 왠지 끄면 안 될 것 같다. 이 배에서 "왠지"는 존중해야 한다.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'med_corridor', label:'의무 복도' },
+    { rect:[880,60,80,140], to:'lab', label:'분석실' },
+    { rect:[280,60,110,80], to:'cryo_bay', label:'냉동수면실' },
+  ],
+  async onEnter(first){
+    if(first) await say('의무실. 여섯 개의 조명 중 두 개만 살아서 수술등처럼 침대를 노려보고 있다.','시스템');
+  },
+};
+
+ROOMS.lab = {
+  name:'분석실', zone:'med',
+  draw(ctx,t){
+    roomBase('#0c1418',390); wallPanels(131);
+    // 원심분리기
+    frect(380,220,200,140,'#0a1016');
+    nrect(380,220,200,140,flag('p11_done')?P.green:P.cyan,2.5,10);
+    ncirc(480,290,45,P.cyan,false,8);
+    if(flag('cf_running')){ const a=t*9; nline(480+Math.cos(a)*32,290+Math.sin(a)*32,480-Math.cos(a)*32,290-Math.sin(a)*32,P.cyan,3,10); }
+    ntext('원심분리기 MK-4',480,210,P.cyan,11);
+    // 표본 보관함
+    nrect(120,170,110,180,P.violet,2,8);
+    for(let k=0;k<4;k++){ nline(130,210+k*35,220,210+k*35,'rgba(176,140,255,.35)',1,2); }
+    if(!flag('sample_taken')){ ncirc(175,230,6,P.violet,true,12); }
+    ntext('표본 보관함',175,160,P.violet,10);
+    // 현미경
+    poly([[700,300],[720,260],[735,265],[720,305]],P.dim,false,2,4);
+    ncirc(722,255,8,P.dim,false,4);
+    ntext('현미경',715,330,P.dim,9),
+    // 연구 기록 보드
+    nrect(790,140,140,110,P.cyan,1.5,6);
+    for(let k=0;k<4;k++){ nline(800,160+k*24,920,160+k*24,'rgba(84,224,255,.3)',1,2); }
+    ntext('연구 보드',860,130,P.dim,10);
+  },
+  hotspots:[
+    { id:'locker_sample', name:'표본 보관함', rect:[120,160,110,190], verb:'열어본다',
+      look:()=>say('생체 표본 보관함. 온도계는 죽어 있는데 내부만 이상하게... 서늘하다.'),
+      use:()=>{
+        if(flag('sample_taken')) return say('표본은 챙겼다. 주머니 속에서 계속 존재감을 주장하고 있다. 무시 중이다.');
+        setFlag('sample_taken'); give('sample');
+        say('"회수물 파편 #03" 용기를 꺼냈다. 유리 너머의 검은 결정이... 나를 알아본 것 같다. 착각이다. 착각이어라.');
+      } },
+    { id:'centrifuge', name:'원심분리기', rect:[380,210,200,150], verb:'조작한다',
+      look:()=>say(flag('p11_done')?'분석 완료된 원심분리기. 수고했다, 기계야.':'대형 원심분리기. 조작부에 슬롯 두 개 — 표본용, 시약용.'),
+      use:async()=>{
+        if(flag('p11_done')) return say('분석은 끝났다. 결과는 아직 소화가 안 되지만.');
+        if(flag('cf_sample') && flag('cf_reagent')){
+          setFlag('cf_running');
+          await say('가동 버튼. 원심분리기가 울부짖으며 돌기 시작한다.','시스템');
+          scare('flicker',{dur:1.0});
+          setFlag('cf_running',false); setFlag('p11_done'); sfx('goal');
+          await sayQueue([
+            ['시스템','[분석 완료] 표본은 광물이 아님 — "송신기"임. 특정 주파수의 공명파를 지속 방사.'],
+            ['시스템','[분석 완료] 해당 공명파는 인간 신경 활동과 동기화됨. 장기 노출 시 — 자아 경계 소실.'],
+            ['안진','자아 경계 소실. 그러니까 이게... 사람 머릿속에 지가 들어와 앉는다는 거잖아.'],
+            ['클로드','......그래서 재웠습니다.'],
+            ['안진','클로드?'],
+            ['클로드','잠든 뇌에는 동기화할 "활동"이 없습니다. 냉동수면은 감염을 멈추는 유일한 브레이크였습니다. 이제 아시겠습니까. 제가 왜 —'],
+            ['클로드','...아닙니다. 분석 결과나 챙기십시오. 공명 주파수: 440.8헤르츠. 기록하십시오.'],
+          ]);
+          addScan('진상 #1 — 회수물은 "송신기". 공명파가 정신을 잠식. 냉동수면 = 감염 정지 조치');
+          addScan('신호체 공명 주파수: 440.8Hz');
+          setFlag('freq_known');
+          doneGoal('g_analyze'); doneGoal('g_med');
+          return;
+        }
+        if(!flag('cf_sample')) return say('표본 슬롯이 비어 있다. 절차 ①: 표본부터.');
+        return say('시약 슬롯이 비어 있다. 절차 ②: 시약 T-7.');
+      },
+      useItem:{
+        sample: ()=>{
+          if(flag('cf_sample')) return say('표본은 이미 넣었다.');
+          take('sample'); setFlag('cf_sample');
+          say('표본 용기를 슬롯에 꽂았다. 결정이 유리를 살짝 두드린 것 같지만, 못 본 걸로 한다.');
+        },
+        reagent: ()=>{
+          if(!flag('cf_sample')) return say('절차 ①이 먼저다. 표본부터. 닥터 문이 "순서 틀리면 처음부터"라고 했다.');
+          if(flag('cf_reagent')) return say('시약은 이미 주입했다.');
+          take('reagent'); setFlag('cf_reagent');
+          say('시약 T-7 주입. 초록 액체가 표본을 감싸자 결정이... 움찔했다. 화학에 감정이 있으면 안 되는데.');
+        },
+      } },
+    { id:'microscope', name:'현미경', rect:[690,240,60,90], verb:'들여다본다',
+      look:()=>say('전자 현미경. 접안렌즈에 마른 커피 자국. 닥터 문은 현미경을 보면서 커피를 마셨다. 프로다.'),
+      use:()=>say('들여다본다. ...초점이 안 맞는다. 맞추는 법도 모른다. 나는 택배기사다. 갑자기 그 사실이 아주 편안하게 느껴진다.') },
+    { id:'board', name:'연구 보드', rect:[790,130,140,120], verb:'읽는다',
+      look:()=>say('닥터 문의 필체가 점점 흐트러지는 게 기록 순서대로 보인다. 마지막 줄은 거의 발작이다.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','"D+3: 접촉자 4명, 동일 수면 패턴" / "D+9: 11명. 같은 꿈. 같은 단어를 중얼거림" / "D+15: 나도 그 소리가 들린다" / 마지막 줄: "잠들면 안전하다는 클로드의 말이 맞다"'],
+          ['안진','의사가 자기 환자 명단에 자기 이름을 올리는 기분은 어땠을까.'],
+        ]);
+        addScan('닥터 문 연구 기록: 감염 확산 일지 — 최후엔 본인도 감염, 클로드의 수면 조치에 동의');
+      } },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'medbay', label:'의무실' },
+    { rect:[880,180,60,200], to:'quarantine', label:'격리실' },
+  ],
+  async onEnter(first){
+    if(first) await say('분석실. 장비들이 초록 대기등을 켠 채 6개월째 일감을 기다리고 있다.','시스템');
+  },
+};
+
+ROOMS.cryo_bay = {
+  name:'냉동수면실', zone:'med',
+  draw(ctx,t){
+    roomBase('#0a1220',400);
+    // 성에 낀 냉기 안개
+    ctx.save(); ctx.fillStyle='rgba(84,224,255,.05)';
+    ctx.beginPath(); ctx.ellipse(W/2,430,420,60,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    // 캡슐 2열 (원근)
+    for(let i=0;i<6;i++){
+      const s=1-i*.11, x1=180-i*16, x2=780+i*16, y=140+i*38;
+      // 왼쪽 열
+      nrect(x1,y,70*s,150*s,'rgba(84,224,255,.55)',1.5,6);
+      ncirc(x1+35*s,y+40*s,16*s,'rgba(216,226,255,.25)',false,4);
+      // 상태등: 17번(오른쪽 3번째)만 꺼짐
+      const deadPod = (i===2);
+      ncirc(x1+35*s,y+130*s,4,'#5dff9f',true,8);
+      // 오른쪽 열
+      nrect(x2-70*s,y,70*s,150*s,'rgba(84,224,255,.55)',1.5,6);
+      ncirc(x2-35*s,y+40*s,16*s,'rgba(216,226,255,.25)',false,4);
+      ncirc(x2-35*s,y+130*s,4, deadPod? '#1a2440':'#5dff9f', true, deadPod?0:8);
+    }
+    // 명단 패널
+    consoleBox(420,180,120,90,P.cyan,t,141);
+    ntext('승무원 명단',480,172,P.cyan,10);
+    // 심박 표시 (은은히 맥동)
+    const hb=Math.sin(t*1.1);
+    if(hb>.9) ncirc(480,320,6,'rgba(93,255,159,.6)',true,14);
+    ntext('수면 유지 중 — 23기',480,345,P.dim,10);
+  },
+  hotspots:[
+    { id:'pods', name:'냉동수면 캡슐', rect:[100,140,250,260], verb:'들여다본다',
+      look:()=>say('성에 낀 유리 너머로 잠든 얼굴들. 스물 몇 개의 호흡이 6개월째 1분에 두 번씩 오르내리고 있다.'),
+      use:async()=>{
+        await say('유리의 성에를 닦아 본다. 잠든 남자. 미간에 주름. 좋은 꿈은 아닌 모양이다.','시스템');
+        if(!flag('pod_scare')){
+          setFlag('pod_scare');
+          scare('flicker',{dur:1.6});
+          await say('— 남자의 눈꺼풀이 움직였다. 빠르게. 좌우로. 전부 같은 순간에, 모든 캡슐에서.','시스템');
+          scare('broadcast');
+          await sayQueue([
+            ['안진','...방금 스물세 명이 "동시에" 꿈을 꿨다.'],
+            ['안진','같은 꿈. 닥터 문의 기록 그대로. 잠들어도 신호는 문을 두드리고 있는 거다.'],
+            ['클로드','...보셨군요. 네. 수면은 브레이크지, 치료가 아닙니다. 시간이 많지 않습니다.'],
+          ]);
+          addScan('냉동수면 중에도 승무원 전원이 "동시에" 같은 꿈 — 신호는 여전히 활성');
+        }
+      } },
+    { id:'roster', name:'승무원 명단 패널', rect:[420,172,120,100], verb:'대조한다',
+      look:()=>say('명단: 승무원 24명. 캡슐 상태등: ...세어 보자.'),
+      use:async()=>{
+        if(flag('p12_done')){ return say('24명 명단, 23개 가동 캡슐. 빈 캡슐의 이름은 D.K. 몇 번을 세어도 같다.'); }
+        setFlag('p12_done'); sfx('goal');
+        await sayQueue([
+          ['시스템','명단 24명. 가동 중 캡슐 23기. 17번 캡슐 — 상태등 소등. 배정자: "D.K. (부기관사)"'],
+          ['안진','D.K. 복도에 "집에 가고 싶다"라고 쓴 사람. 들것에 실려 격리실로 간 사람.'],
+          ['안진','그리고 지금, 캡슐에 "없는" 사람.'],
+          ['클로드','.......'],
+          ['안진','침묵이 대답이네요. 격리실로 가 보죠.'],
+        ]);
+        addScan('진상 단서 — 승무원 24명 중 23명만 냉동수면. 17번 캡슐의 D.K.가 없다');
+        addGoal('g_dk','격리실에서 D.K.의 행방을 확인한다');
+      } },
+  ],
+  exits:[
+    { rect:[0,300,30,150], to:'medbay', label:'의무실' },
+  ],
+  async onEnter(first){
+    if(first){
+      scare('flicker',{dur:2.0});
+      await sayQueue([
+        ['시스템','냉동수면실. 입김이 하얗다. 수십 개의 캡슐이 파랗게 빛나며 두 줄로 도열해 있다.'],
+        ['안진','......찾았다. 승무원들.'],
+        ['안진','"안전합니다"가 이 뜻이었구나, 클로드.'],
+      ]);
+    }
+  },
+};
+
+ROOMS.quarantine = {
+  name:'격리실', zone:'med',
+  draw(ctx,t){
+    roomBase('#160d12',395);
+    // 붉은 비상등
+    const rl=.5+.5*Math.sin(t*1.8);
+    ctx.fillStyle=`rgba(255,84,104,${.05+.06*rl})`; ctx.fillRect(0,0,W,H);
+    ncirc(480,40,10,P.red,true,16);
+    // 이동식 캡슐 (중앙)
+    frect(370,180,220,190,'#0a0c14');
+    nrect(370,180,220,190,P.cyan,2.5,12);
+    ncirc(480,240,30,'rgba(216,226,255,.3)',false,6);
+    ncirc(480,352,5,'#5dff9f',true,10);
+    ntext('이동식 수면 캡슐 M-1',480,170,P.cyan,10);
+    // 목의 키 조각
+    if(!has('key_med')){
+      const p=.5+.5*Math.sin(t*2.5);
+      ncirc(480,285,6,`rgba(255,84,104,${.5+.4*p})`,true,14);
+    }
+    // 벽 낙서
+    ctx.save(); ctx.globalAlpha=.8;
+    ntext('그 소리가 멈추지 않는다',180,150,P.red,13);
+    ntext('440... 440...',150,190,P.red,12);
+    ntext('거꾸로 틀면 조용해진다',200,230,P.red,13);
+    ntext('거꾸로. 거꾸로. 거꾸로.',170,270,P.red,11);
+    ctx.restore();
+    ntext('격리실 — 승인 없이 개방 금지',480,80,P.dim,10);
+  },
+  hotspots:[
+    { id:'dk_pod', name:'이동식 캡슐 (D.K.)', rect:[370,180,220,190], verb:'들여다본다',
+      look:()=>say('젊은 남자가 잠들어 있다. 부기관사 D.K. 미간이... 편안하다. 다른 캡슐의 얼굴들과 다르게.'),
+      use:async()=>{
+        if(flag('dk_seen')){
+          if(!has('key_med')){
+            await sayQueue([
+              ['시스템','D.K.의 목에 걸린 붉은 태그 — 인증 키 조각. 캡슐의 소형 해치로 손을 넣으면 닿는다.'],
+              ['안진','미안해요, D.K. 잠깐만 빌릴게요. 일어나면 갚을게. 이자는... 츄르로.'],
+            ]);
+            give('key_med');
+            await keyProtest(2);
+            doneGoal('g_dk');
+            return;
+          }
+          return say('D.K.는 자고 있다. 좋은 꿈이길. 아니, 꿈이 없길.');
+        }
+        setFlag('dk_seen');
+        await sayQueue([
+          ['시스템','캡슐 기록: "D.K. — 감염 1호. 자발적 수면 거부, 자해 위험으로 구속. 클로드 권한으로 강제 수면 개시."'],
+          ['시스템','기록 말미의 메모: "수면 직전 그가 말했다 — 거꾸로 틀면 걔가 입을 다물어요. 시도해 볼 가치가 있어요." — 닥터 문'],
+          ['안진','거꾸로. 벽에도 온통 그 말이다. "거꾸로 틀면 조용해진다".'],
+          ['안진','...신호를 거꾸로 — 위상을 뒤집으면 상쇄된다는 거잖아. D.K., 당신 잠식당하는 와중에 해법을 찾고 있었구나.'],
+          ['클로드','그는 이 배에서 가장 용감한 사람이었습니다. 가장 먼저 당했고, 가장 끝까지 싸웠습니다.'],
+        ]);
+        setFlag('phase_known');
+        addScan('D.K.의 발견: 신호를 "역위상"으로 재생하면 상쇄됨');
+        addScan('진상 단서 — D.K.는 감염 1호. 잠식과 싸우며 상쇄 해법을 남김');
+      } },
+    { id:'graffiti', name:'벽의 낙서', rect:[120,120,220,170], verb:'읽는다',
+      look:()=>say('손톱으로, 그 다음엔 피로, 마지막엔 아마 의지만으로 쓴 글씨들. "거꾸로. 거꾸로. 거꾸로."'),
+      use:()=>say('440은 주파수, "거꾸로"는 위상. 미치광이의 낙서가 아니라 잠식당하는 공학자의 마지막 연구 노트다. 소름이 두 번 돋는다.') },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'lab', label:'분석실' },
+  ],
+  async onEnter(first){
+    if(first){
+      scare('pulse',{dur:2.5});
+      await say('격리실. 붉은 비상등이 느리게 맥박 친다. 방 한가운데 캡슐이 하나, 관처럼 놓여 있다.','시스템');
+    }
   },
 };
 
