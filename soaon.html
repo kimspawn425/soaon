@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>소아온호 — 우주 택배기사의 아주 긴 하루</title>
+<style>
+  :root{
+    --bg:#05070e; --panel:#0d1322; --panel2:#131b30; --line:#22304f;
+    --txt:#d8e2ff; --dim:#7c89b8;
+    --cyan:#54e0ff; --amber:#ffb454; --red:#ff5468; --green:#5dff9f;
+    --violet:#b08cff; --gold:#ffd166; --pink:#ff7bc1;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:#020308; color:var(--txt);
+    font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden; user-select:none;
+  }
+  #stage{position:relative; width:960px; max-width:100vw;}
+  #viewport{position:relative; width:100%; aspect-ratio:960/586;}
+  /* 캔버스 540 + 하단바 46 = 586 논리 높이. 스케일은 transform으로 */
+  #scaler{position:absolute; left:0; top:0; width:960px; height:586px; transform-origin:0 0;}
+
+  #cv{display:block; width:960px; height:540px; background:#04060c; cursor:crosshair;}
+
+  /* ---------- 핫스팟 라벨 ---------- */
+  #hlabel{
+    position:absolute; pointer-events:none; display:none; z-index:30;
+    background:rgba(5,9,20,.88); border:1px solid var(--line); border-radius:6px;
+    padding:4px 10px; font-size:14px; color:var(--cyan); white-space:nowrap;
+    text-shadow:0 0 8px rgba(84,224,255,.6);
+  }
+  #hlabel .verb{color:var(--dim); font-size:12px;}
+
+  /* ---------- 자막 ---------- */
+  #subs{
+    position:absolute; left:50%; bottom:66px; transform:translateX(-50%);
+    width:86%; z-index:20; pointer-events:none; text-align:center;
+  }
+  .subline{
+    display:inline-block; background:rgba(4,7,15,.82); border-radius:8px;
+    padding:8px 16px; font-size:17px; line-height:1.55; margin-top:6px;
+    border:1px solid rgba(60,80,140,.35);
+    text-shadow:0 0 10px currentColor;
+  }
+  .sp-anjin{color:#cfe6ff;}
+  .sp-claude{color:var(--red);}
+  .sp-claude2{color:var(--amber);}
+  .sp-radio{color:var(--gold);}
+  .sp-sys{color:var(--dim); font-style:italic;}
+
+  /* ---------- 하단 바 ---------- */
+  #bottombar{
+    width:960px; height:46px; background:var(--panel);
+    border-top:1px solid var(--line); display:flex; align-items:center; gap:6px; padding:0 8px;
+  }
+  #invbar{display:flex; gap:5px; flex:1; overflow:hidden;}
+  .islot{
+    width:38px; height:38px; background:var(--panel2); border:1px solid var(--line);
+    border-radius:6px; cursor:pointer; position:relative; flex:none;
+  }
+  .islot:hover{border-color:var(--cyan);}
+  .islot.sel{border-color:var(--gold); box-shadow:0 0 10px rgba(255,209,102,.5);}
+  .islot canvas{width:36px; height:36px; display:block;}
+  #bottombar .btn{
+    background:var(--panel2); border:1px solid var(--line); color:var(--txt);
+    border-radius:6px; padding:7px 12px; font-size:13px; cursor:pointer; flex:none;
+    font-family:inherit;
+  }
+  #bottombar .btn:hover{border-color:var(--cyan); color:var(--cyan);}
+
+  /* ---------- 대화 선택지 ---------- */
+  #choices{
+    position:absolute; left:50%; bottom:70px; transform:translateX(-50%);
+    width:80%; z-index:40; display:none; flex-direction:column; gap:5px;
+  }
+  .choice{
+    background:rgba(8,13,28,.94); border:1px solid var(--line); border-radius:8px;
+    padding:8px 14px; font-size:15px; cursor:pointer; color:var(--txt); text-align:left;
+    font-family:inherit;
+  }
+  .choice:hover{border-color:var(--gold); color:var(--gold); transform:translateX(4px);}
+  .choice .n{color:var(--dim); margin-right:8px; font-size:12px;}
+
+  /* ---------- 오버레이 공통 (PDA/메뉴/타이틀: 후속 태스크) ---------- */
+  .overlay{
+    position:absolute; inset:0; z-index:50; display:none;
+    background:rgba(2,4,10,.9); align-items:center; justify-content:center;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="viewport"><div id="scaler">
+    <canvas id="cv" width="960" height="540"></canvas>
+    <div id="bottombar">
+      <div id="invbar"></div>
+      <button class="btn" id="btnPda">단말기 [Tab]</button>
+      <button class="btn" id="btnMenu">메뉴</button>
+    </div>
+    <div id="hlabel"></div>
+    <div id="subs"></div>
+    <div id="choices"></div>
+  </div></div>
+</div>
+
+<script>
+'use strict';
+/* ================================================================
+   0. 유틸 & 네온 드로잉 헬퍼
+================================================================ */
+const W = 960, H = 540;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+// 시드 고정 의사난수 (배경 디테일이 프레임마다 안 바뀌게)
+function srand(seed){ let s=seed>>>0 || 1; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+
+const P = {  // 팔레트
+  bg:'#04060c', floor:'#0a0f1e', wall:'#0d1426', wall2:'#111a30', line:'#22304f',
+  cyan:'#54e0ff', amber:'#ffb454', red:'#ff5468', green:'#5dff9f',
+  violet:'#b08cff', gold:'#ffd166', dim:'#7c89b8', white:'#d8e2ff',
+};
+
+function glow(c, blur=12){ ctx.shadowColor=c; ctx.shadowBlur=blur; }
+function noGlow(){ ctx.shadowBlur=0; }
+function nline(x1,y1,x2,y2,c,w=2,blur=10){
+  ctx.save(); glow(c,blur); ctx.strokeStyle=c; ctx.lineWidth=w;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.restore();
+}
+function nrect(x,y,w,h,c,lw=2,blur=10){
+  ctx.save(); glow(c,blur); ctx.strokeStyle=c; ctx.lineWidth=lw;
+  ctx.strokeRect(x,y,w,h); ctx.restore();
+}
+function frect(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x,y,w,h); }
+function ncirc(x,y,r,c,fill=false,blur=10){
+  ctx.save(); glow(c,blur);
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+  if(fill){ ctx.fillStyle=c; ctx.fill(); } else { ctx.strokeStyle=c; ctx.lineWidth=2; ctx.stroke(); }
+  ctx.restore();
+}
+function ntext(txt,x,y,c,size=13,align='center',blur=8){
+  ctx.save(); glow(c,blur); ctx.fillStyle=c;
+  ctx.font=`${size}px 'Malgun Gothic',sans-serif`; ctx.textAlign=align;
+  ctx.fillText(txt,x,y); ctx.restore();
+}
+function poly(pts,c,fill=false,lw=2,blur=10){
+  ctx.save(); glow(c,blur); ctx.beginPath();
+  pts.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));
+  ctx.closePath();
+  if(fill){ ctx.fillStyle=c; ctx.fill(); } else { ctx.strokeStyle=c; ctx.lineWidth=lw; ctx.stroke(); }
+  ctx.restore();
+}
+
+// ---- 공용 배경 조각 ----
+function roomBase(wallC=P.wall, floorY=390){
+  frect(0,0,W,H,P.bg);
+  // 벽
+  const g = ctx.createLinearGradient(0,0,0,floorY);
+  g.addColorStop(0,'#070b16'); g.addColorStop(1,wallC);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,floorY);
+  // 바닥 (원근 그리드)
+  const fg = ctx.createLinearGradient(0,floorY,0,H);
+  fg.addColorStop(0,'#0c1224'); fg.addColorStop(1,'#05080f');
+  ctx.fillStyle=fg; ctx.fillRect(0,floorY,W,H-floorY);
+  ctx.save(); ctx.strokeStyle='rgba(60,90,160,.18)'; ctx.lineWidth=1;
+  for(let i=0;i<=12;i++){ // 세로 원근선
+    const x=i*80; const vx = W/2 + (x-W/2)*2.2;
+    ctx.beginPath(); ctx.moveTo(x,floorY); ctx.lineTo(vx,H); ctx.stroke();
+  }
+  for(let i=1;i<5;i++){ const y=floorY+(H-floorY)*Math.pow(i/5,1.6);
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  ctx.restore();
+  // 벽-바닥 경계
+  nline(0,floorY,W,floorY,'rgba(84,224,255,.35)',2,8);
+}
+function wallPanels(seed=1, floorY=390){
+  const r=srand(seed);
+  ctx.save(); ctx.strokeStyle='rgba(50,75,130,.35)'; ctx.lineWidth=1.5;
+  for(let x=0;x<W;x+=160){
+    ctx.strokeRect(x+8,30,144,floorY-60);
+    if(r()<.5){ ctx.strokeRect(x+20,50,120,26); }
+  }
+  ctx.restore();
+}
+function ceilingPipes(seed=2){
+  const r=srand(seed);
+  for(let i=0;i<4;i++){
+    const y=8+i*9;
+    nline(0,y,W,y,`rgba(124,137,184,${.25+r()*.2})`,3+r()*3,0);
+  }
+}
+function doorShape(x,y,w,h,c,open=false,label=''){
+  nrect(x,y,w,h,c,2.5,14);
+  if(open){
+    frect(x+4,y+4,w-8,h-8,'#02030a');
+    nline(x+4,y+4,x+4,y+h-4,'rgba(84,224,255,.3)',1,0);
+  }else{
+    frect(x+4,y+4,w-8,h-8,'#0a1020');
+    nline(x+w/2,y+8,x+w/2,y+h-8,c,2,8);
+    ncirc(x+w/2,y+h/2,7,c);
+  }
+  if(label) ntext(label,x+w/2,y-10,c,12);
+}
+function consoleBox(x,y,w,h,c,t,seed=3){
+  frect(x,y,w,h,'#0a1020'); nrect(x,y,w,h,c,2,10);
+  const r=srand(seed);
+  ctx.save();
+  for(let i=0;i<5;i++){
+    const bx=x+8+r()*(w-30), by=y+8+r()*(h-20), bw=6+r()*18;
+    const on = Math.sin(t*(1+r()*2)+i*2.2)>0;
+    ctx.fillStyle = on? [P.cyan,P.green,P.amber,P.red][Math.floor(r()*4)] : '#1a2440';
+    ctx.fillRect(bx,by,bw,4);
+  }
+  ctx.restore();
+}
+function crateBox(x,y,s,c,label=''){
+  frect(x,y,s,s*0.72,'#0b1122'); nrect(x,y,s,s*0.72,c,2,8);
+  nline(x,y+s*0.36,x+s,y+s*0.36,c,1,4);
+  if(label) ntext(label,x+s/2,y+s*0.45,c,10);
+}
+function starsWindow(x,y,w,h,seed,t){
+  frect(x,y,w,h,'#01020a'); nrect(x,y,w,h,P.cyan,2.5,14);
+  const r=srand(seed); ctx.save(); ctx.beginPath(); ctx.rect(x,y,w,h); ctx.clip();
+  for(let i=0;i<40;i++){
+    const sx=x+r()*w, sy=y+r()*h, tw=.4+.6*Math.sin(t*(.5+r())+i);
+    ctx.fillStyle=`rgba(216,226,255,${.3+.7*Math.abs(tw)})`;
+    ctx.fillRect(sx,sy,1.6,1.6);
+  }
+  ctx.restore();
+}
+
+/* ================================================================
+   1. 전역 상태
+================================================================ */
+const G = {
+  room: null,
+  flags: {},
+  inv: [],
+  goals: {},     // id -> {text, done}
+  scans: [],
+  visited: {},
+  ending: null,
+  selItem: null, // 선택된 인벤토리 아이템 id
+};
+
+function flag(k){ return !!G.flags[k]; }
+function setFlag(k,v=true){ G.flags[k]=v; }
+function has(id){ return G.inv.includes(id); }
+
+/* ================================================================
+   2. 자막 (say)
+================================================================ */
+const subsEl = $('subs');
+let sayTimer = null, sayResolve = null, sayBusy = false;
+const SPEAKER_CLS = {'안진':'sp-anjin','클로드':'sp-claude','클로드2':'sp-claude2','방송':'sp-radio','시스템':'sp-sys'};
+
+function sayNow(text, speaker='안진'){
+  return new Promise(res=>{
+    subsEl.innerHTML='';
+    const d=document.createElement('div');
+    d.className='subline '+(SPEAKER_CLS[speaker]||'sp-anjin');
+    d.textContent = speaker==='시스템'? text : `${speaker==='안진'?'':speaker+': '}${text}`;
+    subsEl.appendChild(d);
+    sayBusy = true;
+    sayResolve = res;
+    const dur = clamp(1100 + text.length*75, 1600, 7000);
+    sayTimer = setTimeout(()=>finishSay(), dur);
+  });
+}
+function finishSay(){
+  if(sayTimer){ clearTimeout(sayTimer); sayTimer=null; }
+  subsEl.innerHTML=''; sayBusy=false;
+  const r=sayResolve; sayResolve=null;
+  if(r) r();
+}
+// 순차 대사 큐. say('텍스트') 또는 sayQueue([[스피커,텍스트],...])
+async function sayQueue(lines){
+  for(const [sp,tx] of lines){ await sayNow(tx,sp); }
+}
+function say(text, speaker='안진'){ return sayNow(text, speaker); }
+
+/* ================================================================
+   3. 방 이동 / 게임 루프
+================================================================ */
+const ROOMS = {};
+let time0 = performance.now();
+
+function curRoom(){ return ROOMS[G.room]; }
+
+function goto(roomId){
+  const first = !G.visited[roomId];
+  G.room = roomId; G.visited[roomId]=true;
+  hideLabel();
+  const r = ROOMS[roomId];
+  if(r && r.onEnter) r.onEnter(first);
+  if(typeof autoSave==='function') autoSave();
+}
+
+function activeHotspots(){
+  const r=curRoom(); if(!r) return [];
+  return (r.hotspots||[]).filter(h=>!h.visible || h.visible());
+}
+function activeExits(){
+  const r=curRoom(); if(!r) return [];
+  return (r.exits||[]).filter(e=>!e.visible || e.visible());
+}
+
+function drawFrame(){
+  const t=(performance.now()-time0)/1000;
+  const r=curRoom();
+  ctx.clearRect(0,0,W,H);
+  if(r){ r.draw(ctx,t); drawFx(t); }
+  requestAnimationFrame(drawFrame);
+}
+function drawFx(t){ /* Task 4에서 확장 (scare 이펙트) */ }
+
+/* ================================================================
+   4. 입력 (호버 라벨 / 좌우클릭)
+================================================================ */
+const hlabel = $('hlabel');
+let mouseX=0, mouseY=0;
+
+function canvasPos(ev){
+  const rect=cv.getBoundingClientRect();
+  return [ (ev.clientX-rect.left)*W/rect.width, (ev.clientY-rect.top)*H/rect.height ];
+}
+function hitTest(x,y){
+  // 핫스팟 우선, 그 다음 출구
+  const hs=activeHotspots();
+  for(let i=hs.length-1;i>=0;i--){
+    const [hx,hy,hw,hh]=hs[i].rect;
+    if(x>=hx&&x<=hx+hw&&y>=hy&&y<=hy+hh) return {type:'hot', h:hs[i]};
+  }
+  for(const e of activeExits()){
+    const [hx,hy,hw,hh]=e.rect;
+    if(x>=hx&&x<=hx+hw&&y>=hy&&y<=hy+hh) return {type:'exit', e};
+  }
+  return null;
+}
+function showLabel(html,x,y){
+  hlabel.innerHTML=html; hlabel.style.display='block';
+  const scale = getScale();
+  hlabel.style.left = clamp(x*scale+14, 0, 960*scale-160)+'px';
+  hlabel.style.top  = clamp(y*scale+10, 0, 540*scale-30)+'px';
+}
+function hideLabel(){ hlabel.style.display='none'; }
+
+cv.addEventListener('mousemove', ev=>{
+  const [x,y]=canvasPos(ev); mouseX=x; mouseY=y;
+  if(dialogActive){ hideLabel(); return; }
+  const hit=hitTest(x,y);
+  if(!hit){ hideLabel(); cv.style.cursor='crosshair'; return; }
+  cv.style.cursor='pointer';
+  if(hit.type==='hot'){
+    const verb = G.selItem ? `${ITEMS[G.selItem].name} 사용` : (hit.h.verb||'살펴본다');
+    showLabel(`${hit.h.name} <span class="verb">— ${verb}</span>`,x,y);
+  }else{
+    showLabel(`${hit.e.label||'이동'} <span class="verb">— 이동한다</span>`,x,y);
+  }
+});
+cv.addEventListener('mouseleave', hideLabel);
+
+cv.addEventListener('click', async ev=>{
+  if(sayBusy){ finishSay(); return; }   // 클릭으로 대사 스킵
+  if(dialogActive) return;
+  const [x,y]=canvasPos(ev);
+  const hit=hitTest(x,y);
+  if(!hit){ deselectItem(); return; }
+  if(hit.type==='exit'){
+    deselectItem();
+    if(hit.e.locked && hit.e.locked()){ say(hit.e.lockedMsg||'잠겨 있다.'); return; }
+    goto(hit.e.to); return;
+  }
+  const h=hit.h;
+  if(G.selItem){
+    const fn = h.useItem && h.useItem[G.selItem];
+    const it = G.selItem; deselectItem();
+    if(fn) fn(); else failUse(it,h);
+    return;
+  }
+  if(h.use) h.use(); else if(h.look) h.look(); else say('별다른 건 없다.');
+});
+cv.addEventListener('contextmenu', ev=>{
+  ev.preventDefault();
+  if(sayBusy){ finishSay(); return; }
+  if(dialogActive) return;
+  const [x,y]=canvasPos(ev);
+  const hit=hitTest(x,y);
+  if(!hit) { deselectItem(); return; }
+  if(hit.type==='exit'){ say(hit.e.lookMsg||'저쪽으로 갈 수 있을 것 같다.'); return; }
+  if(hit.h.look) hit.h.look(); else say('특별한 점은 없다.');
+});
+
+// 아이템을 엉뚱한 데 썼을 때 (위트 랜덤 풀)
+const FAIL_LINES = [
+  '그건 좀... 아니지 않나?',
+  '배송 규정 7조: 물품을 아무 데나 문지르지 마시오.',
+  '흠. 우주 어딘가에선 통할지도 모르지만, 여기선 아니다.',
+  '시도는 창의적이었다. 결과는 아니었다.',
+  '그렇게 하면 안 된다는 걸 방금 배웠다.',
+];
+function failUse(itemId,h){
+  say(FAIL_LINES[Math.floor(Math.random()*FAIL_LINES.length)]);
+}
+
+/* ================================================================
+   5. 스케일링
+================================================================ */
+const scaler=$('scaler'), viewport=$('viewport');
+function getScale(){
+  return Math.min(window.innerWidth/960, window.innerHeight/586, 1.6);
+}
+function applyScale(){
+  const s=getScale();
+  scaler.style.transform=`scale(${s})`;
+  viewport.parentElement.style.width = 960*s+'px';
+  viewport.style.height = 586*s+'px';
+}
+window.addEventListener('resize', applyScale);
+
+/* ================================================================
+   6. 대화 시스템 자리 (Task 2) / 인벤토리 자리 (Task 2)
+================================================================ */
+let dialogActive=false;
+const ITEMS = {};
+function deselectItem(){ G.selItem=null; renderInv(); }
+function renderInv(){ /* Task 2 */ }
+
+/* ================================================================
+   9. DATA: 방 — 테스트 방
+================================================================ */
+ROOMS.test_room = {
+  name:'테스트 격실', zone:'act1',
+  draw(ctx,t){
+    roomBase(); wallPanels(11); ceilingPipes();
+    starsWindow(380,80,200,120,7,t);
+    consoleBox(80,240,150,110,P.cyan,t,21);
+    crateBox(700,300,110,P.amber,'거북특급');
+    doorShape(850,180,70,210,P.green,false,'출구');
+    ntext('SOAON — TEST BAY',W/2,40,P.dim,14);
+  },
+  hotspots:[
+    { id:'window', name:'관측창', rect:[380,80,200,120], verb:'내다본다',
+      look:()=>say('별이 많다. 그리고 전부 나한테 관심이 없다.'),
+      use:()=>say('우주다. 여전히 넓고, 여전히 배송비는 안 쳐준다.') },
+    { id:'console', name:'콘솔', rect:[80,240,150,110], verb:'조작한다',
+      look:()=>say('불빛이 깜빡인다. 뭔가 계산 중이거나, 그런 척하는 중이다.'),
+      use:()=>say('버튼을 눌렀다. 아무 일도 없었다. 완벽한 테스트다.') },
+    { id:'crate', name:'화물 상자', rect:[700,300,110,80], verb:'열어본다',
+      look:()=>say('거북특급 로고가 박혀 있다. 우리 회사 물건은 어디에나 있다. 늦게 도착할 뿐.'),
+      use:()=>say('잠겨 있다. 배송 완료 전 개봉 금지. 나도 규정은 지킨다. 가끔.') },
+  ],
+  exits:[
+    { rect:[850,180,70,210], to:'test_room', label:'출구',
+      locked:()=>true, lockedMsg:'출구라고 써 있지만, 테스트 방의 출구는 언제나 잠겨 있는 법이다.' },
+  ],
+  onEnter(first){ if(first) say('여긴 테스트 격실이다. 엔진이 잘 도는지 보는 곳.','시스템'); },
+};
+
+/* ================================================================
+   12. 부팅
+================================================================ */
+applyScale();
+goto('test_room');
+requestAnimationFrame(drawFrame);
+window.G=G; window.goto_=goto;
+</script>
+</body>
+</html>
