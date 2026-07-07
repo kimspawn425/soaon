@@ -386,6 +386,8 @@ function goto(roomId){
   G.room = roomId; G.visited[roomId]=true;
   hideLabel();
   const r = ROOMS[roomId];
+  if(typeof playAmb==='function' && r && r.zone!==ambZone){ playAmb(r.zone); }
+  if(typeof sfx==='function' && !first) sfx('door');
   if(r && r.onEnter) r.onEnter(first);
   if(typeof autoSave==='function') autoSave();
 }
@@ -406,7 +408,154 @@ function drawFrame(){
   if(r){ r.draw(ctx,t); drawFx(t); }
   requestAnimationFrame(drawFrame);
 }
-function drawFx(t){ /* Task 4에서 확장 (scare 이펙트) */ }
+/* ---------- 공포 연출 (scare) ---------- */
+const FX = [];
+function scare(kind, opt={}){
+  FX.push({kind, t0:performance.now()/1000, ...opt});
+  sfx('sc_'+kind);
+}
+function drawFx(t){
+  // 상시 비네트 (가장자리 어둡게 — 분위기)
+  const vg = ctx.createRadialGradient(W/2,H/2,H*0.45, W/2,H/2,H*0.85);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.55)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+
+  const now=performance.now()/1000;
+  for(let i=FX.length-1;i>=0;i--){
+    const fx=FX[i], e=now-fx.t0;
+    if(fx.kind==='flicker'){
+      const dur=fx.dur||1.4;
+      if(e>dur){ FX.splice(i,1); continue; }
+      // 불규칙 점멸: 어두워졌다 번쩍였다
+      const s=Math.sin(e*47)+Math.sin(e*31+2)+Math.sin(e*13);
+      if(s>1.2){ ctx.fillStyle='rgba(200,220,255,.08)'; ctx.fillRect(0,0,W,H); }
+      else if(s<-.8){ ctx.fillStyle=`rgba(0,0,5,${.55+.3*Math.random()})`; ctx.fillRect(0,0,W,H); }
+    }
+    else if(fx.kind==='shadow'){
+      const dur=fx.dur||2.4;
+      if(e>dur){ FX.splice(i,1); continue; }
+      // 복도 저편을 스쳐 가는 형체
+      const p=e/dur;
+      const x=(fx.rtl? 1-p : p)*(W+240)-120;
+      const y=fx.y||300, s=fx.s||1;
+      const a=Math.sin(p*Math.PI)*.5;
+      ctx.save(); ctx.filter='blur(6px)';
+      ctx.fillStyle=`rgba(2,3,8,${a})`;
+      ctx.beginPath(); ctx.ellipse(x,y-70*s,16*s,26*s,0,0,Math.PI*2); ctx.fill(); // 머리
+      ctx.beginPath(); ctx.ellipse(x,y,24*s,62*s,0,0,Math.PI*2); ctx.fill();      // 몸
+      ctx.restore();
+    }
+    else if(fx.kind==='broadcast'){
+      const dur=fx.dur||1.6;
+      if(e>dur){ FX.splice(i,1); continue; }
+      // 방송 노이즈: 스캔라인 + 지직거림
+      ctx.save();
+      for(let n=0;n<26;n++){
+        const y=Math.random()*H;
+        ctx.fillStyle=`rgba(180,200,255,${Math.random()*.12})`;
+        ctx.fillRect(0,y,W,1+Math.random()*2);
+      }
+      if(Math.random()<.35){
+        const sy=Math.random()*H, sh=8+Math.random()*30;
+        const img=ctx.getImageData(0,sy,W,sh);
+        ctx.putImageData(img,(Math.random()-.5)*24,sy);
+      }
+      ctx.restore();
+    }
+    else if(fx.kind==='pulse'){
+      const dur=fx.dur||2.0;
+      if(e>dur){ FX.splice(i,1); continue; }
+      // 붉은 경고 펄스
+      const a=Math.abs(Math.sin(e*6))*.16*(1-e/dur);
+      ctx.fillStyle=`rgba(255,60,80,${a})`; ctx.fillRect(0,0,W,H);
+    }
+  }
+}
+
+/* ---------- 사운드 (WebAudio 절차 합성) ---------- */
+let AC=null, masterGain=null, ambGain=null, ambOsc=[], muted=false, ambZone=null;
+let clankTimer=null;
+
+function initAudio(){
+  if(AC) return;
+  try{
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    masterGain=AC.createGain(); masterGain.gain.value=muted?0:1;
+    masterGain.connect(AC.destination);
+    ambGain=AC.createGain(); ambGain.gain.value=.14; ambGain.connect(masterGain);
+    playAmb(ambZone||'act1');
+    scheduleClank();
+  }catch(e){ AC=null; }
+}
+function stopAmb(){
+  ambOsc.forEach(n=>{ try{n.stop();}catch(e){} });
+  ambOsc=[];
+}
+const ZONE_DRONE = { act1:[55,58], eng:[42,44.5], med:[66,66.7], crew:[60,63], act3:[36,37.5] };
+function playAmb(zone){
+  ambZone=zone;
+  if(!AC) return;
+  stopAmb();
+  const [f1,f2]=ZONE_DRONE[zone]||ZONE_DRONE.act1;
+  const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value= zone==='med'? 400:220;
+  lp.connect(ambGain);
+  [f1,f2].forEach(f=>{
+    const o=AC.createOscillator(); o.type= zone==='act3'?'sawtooth':'triangle';
+    o.frequency.value=f;
+    const g=AC.createGain(); g.gain.value=.5;
+    o.connect(g); g.connect(lp); o.start();
+    ambOsc.push(o);
+  });
+}
+function scheduleClank(){
+  if(clankTimer) clearTimeout(clankTimer);
+  clankTimer=setTimeout(()=>{
+    if(AC && !muted && gameStarted) sfx('clank');
+    scheduleClank();
+  }, 18000+Math.random()*30000);
+}
+function tone(freq, dur, type='sine', vol=.2, when=0, slide=0){
+  if(!AC) return;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.value=freq;
+  if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(20,freq+slide), AC.currentTime+when+dur);
+  g.gain.setValueAtTime(0, AC.currentTime+when);
+  g.gain.linearRampToValueAtTime(vol, AC.currentTime+when+.015);
+  g.gain.exponentialRampToValueAtTime(.0001, AC.currentTime+when+dur);
+  o.connect(g); g.connect(masterGain);
+  o.start(AC.currentTime+when); o.stop(AC.currentTime+when+dur+.05);
+}
+function noiseBurst(dur, vol=.2, filterFreq=1200, type='bandpass'){
+  if(!AC) return;
+  const len=AC.sampleRate*dur;
+  const buf=AC.createBuffer(1,len,AC.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+  const src=AC.createBufferSource(); src.buffer=buf;
+  const f=AC.createBiquadFilter(); f.type=type; f.frequency.value=filterFreq;
+  const g=AC.createGain(); g.gain.value=vol;
+  src.connect(f); f.connect(g); g.connect(masterGain); src.start();
+}
+function sfx(kind){
+  if(!AC || muted) return;
+  switch(kind){
+    case 'click':   tone(880,.06,'square',.05); break;
+    case 'pickup':  tone(520,.09,'triangle',.15); tone(780,.12,'triangle',.15,.07); break;
+    case 'door':    noiseBurst(.5,.12,300,'lowpass'); tone(90,.4,'sine',.1,0,-30); break;
+    case 'goal':    tone(660,.1,'sine',.12); tone(990,.16,'sine',.12,.09); break;
+    case 'clank':   noiseBurst(.25,.10,700); tone(140,.3,'sine',.08,0,-60); break;
+    case 'sc_flicker': noiseBurst(.8,.08,2400,'highpass'); break;
+    case 'sc_shadow':  tone(48,1.6,'sine',.16,0,-14); noiseBurst(1.2,.05,150,'lowpass'); break;
+    case 'sc_broadcast': noiseBurst(1.2,.14,1600); break;
+    case 'sc_pulse':   tone(70,.9,'sawtooth',.1,0,-20); tone(70,.9,'sawtooth',.1,1.0,-20); break;
+  }
+}
+function toggleMute(){
+  muted=!muted;
+  if(masterGain) masterGain.gain.value=muted?0:1;
+  say(muted?'[음소거]':'[소리 켬]','시스템');
+}
+document.addEventListener('pointerdown', initAudio, {once:false});
 
 /* ================================================================
    4. 입력 (호버 라벨 / 좌우클릭)
@@ -466,6 +615,7 @@ cv.addEventListener('click', async ev=>{
     goto(hit.e.to); return;
   }
   const h=hit.h;
+  sfx('click');
   if(G.selItem){
     const fn = h.useItem && h.useItem[G.selItem];
     const it = G.selItem; deselectItem();
@@ -524,6 +674,7 @@ const invbar = $('invbar');
 function give(id, quiet=false){
   if(has(id)) return;
   G.inv.push(id); renderInv();
+  sfx('pickup');
   if(!quiet) say(`[획득] ${ITEMS[id].name}`,'시스템');
 }
 function take(id){
@@ -626,6 +777,7 @@ async function dialog(startId){
 function addGoal(id,text){
   if(G.goals[id]) return;
   G.goals[id]={text,done:false};
+  sfx('goal');
   say(`[목표] ${text}`,'시스템');
 }
 function doneGoal(id){
@@ -816,6 +968,7 @@ window.addEventListener('keydown', ev=>{
     const idx=+ev.key-1;
     if(idx < choicesEl.children.length) pickChoice(idx);
   }
+  else if(ev.key==='m'||ev.key==='M'){ toggleMute(); }
   else if((ev.key===' '||ev.key==='Enter') && sayBusy){ finishSay(); }
 });
 
