@@ -128,6 +128,9 @@
   #pdaBody .goal::before{content:'▸ '; color:var(--gold);}
   #pdaBody .goal.done::before{content:'✓ '; color:var(--green);}
   #pdaBody .scanline{color:var(--cyan); border-bottom:1px dashed var(--line); padding:4px 0; font-size:13px;}
+  #pdaBody .logline{padding:5px 0; border-bottom:1px solid rgba(34,48,79,.4); font-size:13px; line-height:1.6;}
+  #pdaBody .logline.sp-sys{font-style:italic; opacity:.8;}
+  #pdaBody .logline b{font-weight:bold;}
 
   /* 타이틀 */
   #title{flex-direction:column; gap:26px; text-align:center; background:rgba(2,4,10,.97);}
@@ -181,6 +184,7 @@
         <div id="pdaTabs">
           <button data-t="goals" class="on">배송 업무</button>
           <button data-t="scans">스캔 기록</button>
+          <button data-t="log">대화 기록</button>
           <button data-t="map">선내 지도</button>
         </div>
         <div id="pdaBody"></div>
@@ -349,6 +353,7 @@ const G = {
   scans: [],
   visited: {},
   ending: null,
+  log: [],       // 대화 기록 {s:화자, t:텍스트}
   selItem: null, // 선택된 인벤토리 아이템 id
 };
 
@@ -366,6 +371,10 @@ const SPEAKER_CLS = {'안진':'sp-anjin','클로드':'sp-claude','클로드*':'s
 function sayNow(text, speaker='안진'){
   return new Promise(res=>{
     if(typeof TESTFAST!=='undefined' && TESTFAST){ res(); return; }
+    // 대화 기록 (순수 UI 토스트는 제외)
+    if(text!=='[단말기에 기록됨]' && text!=='[음소거]' && text!=='[소리 켬]'){
+      G.log.push({s:speaker, t:text}); if(G.log.length>400) G.log.shift();
+    }
     subsEl.innerHTML='';
     const d=document.createElement('div');
     d.className='subline '+(SPEAKER_CLS[speaker]||'sp-anjin');
@@ -892,6 +901,21 @@ function renderPda(){
       const d=document.createElement('div'); d.className='scanline'; d.textContent='» '+s;
       pdaBody.appendChild(d);
     });
+  }else if(pdaTab==='log'){
+    pdaBody.innerHTML = G.log.length? '' : '<div style="color:var(--dim)">아직 기록된 대화가 없습니다.</div>';
+    for(const e of G.log){
+      const label = e.s.endsWith('*')? e.s.slice(0,-1) : e.s;
+      const d=document.createElement('div');
+      d.className='logline '+(SPEAKER_CLS[e.s]||'sp-anjin');
+      if(e.s==='시스템'){ d.textContent=e.t; }
+      else {
+        const nm=document.createElement('b'); nm.textContent=label+' ';
+        const tx=document.createElement('span'); tx.textContent=e.t;
+        d.appendChild(nm); d.appendChild(tx);
+      }
+      pdaBody.appendChild(d);
+    }
+    pdaBody.scrollTop = pdaBody.scrollHeight;  // 최신 대사로 스크롤
   }else{ // map
     pdaBody.innerHTML='';
     const mc=document.createElement('canvas'); mc.width=690; mc.height=380;
@@ -939,6 +963,7 @@ function snapshot(){
   return JSON.stringify({
     room:G.room, flags:G.flags, inv:G.inv, goals:G.goals,
     scans:G.scans, visited:G.visited, ending:G.ending,
+    log:G.log.slice(-250),
     when:new Date().toLocaleString('ko-KR'),
   });
 }
@@ -949,7 +974,7 @@ function loadGame(slot='auto'){
   try{
     const d=JSON.parse(raw);
     Object.assign(G,{flags:d.flags||{}, inv:d.inv||[], goals:d.goals||{},
-      scans:d.scans||[], visited:d.visited||{}, ending:d.ending||null, selItem:null});
+      scans:d.scans||[], visited:d.visited||{}, ending:d.ending||null, log:d.log||[], selItem:null});
     renderInv();
     G.room=null; goto(d.room||START_ROOM);
     return true;
@@ -963,7 +988,7 @@ function saveInfo(slot){
 function autoSave(){ if(gameStarted) saveGame('auto'); }
 
 function resetState(){
-  Object.assign(G,{room:null,flags:{},inv:[],goals:{},scans:[],visited:{},ending:null,selItem:null});
+  Object.assign(G,{room:null,flags:{},inv:[],goals:{},scans:[],visited:{},ending:null,log:[],selItem:null});
   renderInv();
 }
 function newGame(){
