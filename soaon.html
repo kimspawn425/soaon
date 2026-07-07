@@ -426,16 +426,169 @@ function applyScale(){
 window.addEventListener('resize', applyScale);
 
 /* ================================================================
-   6. 대화 시스템 자리 (Task 2) / 인벤토리 자리 (Task 2)
+   6. 인벤토리
 ================================================================ */
-let dialogActive=false;
 const ITEMS = {};
+const COMBOS = {};
+function comboKey(a,b){ return [a,b].sort().join('+'); }
+function onCombine(a,b,fn){ COMBOS[comboKey(a,b)]=fn; }
+
+const invbar = $('invbar');
+function give(id, quiet=false){
+  if(has(id)) return;
+  G.inv.push(id); renderInv();
+  if(!quiet) say(`[획득] ${ITEMS[id].name}`,'시스템');
+}
+function take(id){
+  const i=G.inv.indexOf(id);
+  if(i>=0) G.inv.splice(i,1);
+  if(G.selItem===id) G.selItem=null;
+  renderInv();
+}
 function deselectItem(){ G.selItem=null; renderInv(); }
-function renderInv(){ /* Task 2 */ }
+
+function renderInv(){
+  invbar.innerHTML='';
+  for(const id of G.inv){
+    const it=ITEMS[id];
+    const slot=document.createElement('div');
+    slot.className='islot'+(G.selItem===id?' sel':'');
+    slot.title=it.name;
+    const c=document.createElement('canvas'); c.width=36; c.height=36;
+    const ic=c.getContext('2d');
+    if(it.draw) it.draw(ic,36);
+    slot.appendChild(c);
+    slot.addEventListener('click', ()=>{
+      if(sayBusy) finishSay();
+      if(G.selItem && G.selItem!==id){
+        const fn=COMBOS[comboKey(G.selItem,id)];
+        const a=G.selItem; deselectItem();
+        if(fn) fn(); else say(`${ITEMS[a].name}와(과) ${it.name}. 조합하면... 아니, 안 되는 건 안 되는 거다.`);
+        return;
+      }
+      G.selItem = (G.selItem===id)? null : id;
+      renderInv();
+    });
+    slot.addEventListener('contextmenu', ev=>{
+      ev.preventDefault();
+      if(sayBusy) finishSay();
+      say(it.desc||it.name);
+    });
+    invbar.appendChild(slot);
+  }
+}
+
+// 아이콘 드로잉 헬퍼 (36px 슬롯 기준)
+function iconBase(ic,fn){
+  ic.clearRect(0,0,36,36);
+  ic.save(); ic.translate(18,18); fn(ic); ic.restore();
+}
+
+/* ================================================================
+   7. 대화 시스템 (선택지 트리)
+================================================================ */
+const DIALOGS = {};
+let dialogActive=false;
+let choiceResolver=null;
+const choicesEl = $('choices');
+
+function showChoices(texts){
+  return new Promise(res=>{
+    choiceResolver = res;
+    choicesEl.innerHTML='';
+    texts.forEach((tx,i)=>{
+      const b=document.createElement('button');
+      b.className='choice';
+      b.innerHTML=`<span class="n">${i+1}.</span>${tx}`;
+      b.addEventListener('click', ()=>pickChoice(i));
+      choicesEl.appendChild(b);
+    });
+    choicesEl.style.display='flex';
+  });
+}
+function pickChoice(i){
+  if(!choiceResolver) return;
+  choicesEl.style.display='none'; choicesEl.innerHTML='';
+  const r=choiceResolver; choiceResolver=null; r(i);
+}
+
+async function dialog(startId){
+  dialogActive=true; hideLabel();
+  let node = DIALOGS[startId];
+  while(node){
+    if(node.lines){ await sayQueue(node.lines); }
+    const text = typeof node.text==='function'? node.text() : node.text;
+    if(text) await sayNow(text, node.speaker||'안진');
+    if(node.action) await node.action();
+    const avail = (node.choices||[]).filter(c=>!c.cond||c.cond());
+    if(avail.length){
+      const idx = await showChoices(avail.map(c=>typeof c.text==='function'?c.text():c.text));
+      const c = avail[idx];
+      if(c.action) await c.action();
+      node = c.next? DIALOGS[c.next] : null;
+    }else{
+      node = node.next? DIALOGS[node.next] : null;
+    }
+  }
+  dialogActive=false;
+}
+
+/* ================================================================
+   8. 목표 / 스캔 로그
+================================================================ */
+function addGoal(id,text){
+  if(G.goals[id]) return;
+  G.goals[id]={text,done:false};
+  say(`[목표] ${text}`,'시스템');
+}
+function doneGoal(id){
+  if(G.goals[id] && !G.goals[id].done){
+    G.goals[id].done=true;
+    say(`[완료] ${G.goals[id].text}`,'시스템');
+  }
+}
+function addScan(text){
+  if(G.scans.includes(text)) return;
+  G.scans.push(text);
+  say('[단말기에 기록됨]','시스템');
+}
 
 /* ================================================================
    9. DATA: 방 — 테스트 방
 ================================================================ */
+ITEMS.t_wrench = {
+  name:'시험용 렌치', desc:'테스트 담당자의 혼이 깃든 렌치. 어딘가 조이고 싶어진다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.amber; c.lineWidth=3; c.shadowColor=P.amber; c.shadowBlur=6;
+    c.beginPath(); c.moveTo(-10,10); c.lineTo(6,-6); c.stroke(); c.beginPath(); c.arc(9,-9,6,.6,5,false); c.stroke(); }); },
+};
+ITEMS.t_tape = {
+  name:'시험용 테이프', desc:'우주에서 테이프로 못 고치는 건 마음의 상처뿐이다.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.cyan; c.lineWidth=3; c.shadowColor=P.cyan; c.shadowBlur=6;
+    c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.stroke(); c.beginPath(); c.arc(0,0,4,0,Math.PI*2); c.stroke(); }); },
+};
+onCombine('t_wrench','t_tape', ()=>{
+  say('렌치에 테이프를 감았다. 이제 아주... 끈적한 렌치가 됐다. 발전이다.');
+  setFlag('t_combined');
+});
+
+DIALOGS.t_console = {
+  speaker:'클로드', text:'...테스트 콘솔입니다. 무엇을 테스트하시겠습니까.',
+  choices:[
+    { text:'대화 시스템을 테스트한다.', next:'t_console2' },
+    { text:'조건부 선택지를 테스트한다.', cond:()=>flag('t_combined'), next:'t_console3' },
+    { text:'아무것도 안 한다.', next:null,
+      action:()=>say('현명한 선택입니다. 대부분의 문제는 아무것도 안 하면 생기지 않죠.','클로드') },
+  ],
+};
+DIALOGS.t_console2 = {
+  speaker:'클로드', text:'지금 그걸 하고 계십니다.',
+  next:null,
+};
+DIALOGS.t_console3 = {
+  speaker:'클로드', text:'끈적한 렌치를 확인했습니다. 인류의 미래가 밝군요.',
+  next:null,
+};
+
 ROOMS.test_room = {
   name:'테스트 격실', zone:'act1',
   draw(ctx,t){
@@ -452,10 +605,14 @@ ROOMS.test_room = {
       use:()=>say('우주다. 여전히 넓고, 여전히 배송비는 안 쳐준다.') },
     { id:'console', name:'콘솔', rect:[80,240,150,110], verb:'조작한다',
       look:()=>say('불빛이 깜빡인다. 뭔가 계산 중이거나, 그런 척하는 중이다.'),
-      use:()=>say('버튼을 눌렀다. 아무 일도 없었다. 완벽한 테스트다.') },
+      use:()=>dialog('t_console'),
+      useItem:{ t_wrench: ()=>say('콘솔을 렌치로 두드렸다. 콘솔이 삐— 하고 항의했다.') } },
     { id:'crate', name:'화물 상자', rect:[700,300,110,80], verb:'열어본다',
       look:()=>say('거북특급 로고가 박혀 있다. 우리 회사 물건은 어디에나 있다. 늦게 도착할 뿐.'),
-      use:()=>say('잠겨 있다. 배송 완료 전 개봉 금지. 나도 규정은 지킨다. 가끔.') },
+      use:()=>{
+        if(!has('t_wrench')){ give('t_wrench'); give('t_tape'); addGoal('t_goal','렌치와 테이프로 무언가를 해본다'); }
+        else say('상자는 이제 비었다. 내 인벤토리는 찼고.');
+      } },
   ],
   exits:[
     { rect:[850,180,70,210], to:'test_room', label:'출구',
