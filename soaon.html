@@ -146,6 +146,14 @@
   .slotrow .sname{flex:1; color:var(--dim);}
   #menu .obox{width:420px;}
   #menu .mbtns{display:flex; flex-direction:column; gap:8px; padding:16px 18px;}
+
+  /* 크레딧 */
+  #credits{flex-direction:column; gap:8px; text-align:center; background:rgba(1,2,6,.98); overflow:hidden;}
+  #credits .ctitle{font-size:34px; letter-spacing:8px; color:var(--cyan); text-shadow:0 0 20px rgba(84,224,255,.7); margin-bottom:6px;}
+  #credits .cend{font-size:15px; color:var(--gold); letter-spacing:3px; margin-bottom:14px;}
+  #credits .cline{font-size:13px; color:var(--dim); line-height:1.9;}
+  #credits .cline b{color:var(--txt); font-weight:normal;}
+  #credits button{margin-top:22px;}
 </style>
 </head>
 <body>
@@ -190,6 +198,8 @@
       </div>
       <div class="tsub" style="font-size:12px">좌클릭: 행동 · 우클릭: 관찰 · Tab: 단말기 · Esc: 메뉴</div>
     </div>
+
+    <div class="overlay" id="credits"></div>
   </div></div>
 </div>
 
@@ -3003,6 +3013,372 @@ ROOMS.hydro = {
 };
 
 /* ================================================================
+   DATA: 3막 — 코어 전실 / AI 코어 / 신호체 격납고
+================================================================ */
+ROOMS.ai_ante = {
+  name:'코어 전실', zone:'act3',
+  draw(ctx,t){
+    roomBase('#0a0e1c',400);
+    // 서버 랙 열
+    for(let i=0;i<5;i++){
+      const x=80+i*120;
+      nrect(x,130,90,240,'rgba(84,224,255,.5)',1.5,6);
+      const r=srand(200+i);
+      for(let k=0;k<8;k++){
+        const on=Math.sin(t*(1+r())+k)>0;
+        frect(x+10,145+k*28,12,5, on? P.cyan:'#131b30');
+        frect(x+30,145+k*28,26,5,'#0d1322');
+      }
+    }
+    // 천장 케이블 다발
+    for(let i=0;i<6;i++){
+      const x=100+i*150;
+      ctx.save(); ctx.strokeStyle='rgba(124,137,184,.4)'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.quadraticCurveTo(x+30,70,x+10,130); ctx.stroke();
+      ctx.restore();
+    }
+    // 기억 스크린
+    nrect(720,160,180,120,P.gold,2,10);
+    const ph=Math.floor(t/3)%3;
+    ntext(['[승무원 회식 사진]','[뭉치 낮잠 사진]','[선장의 생일 파티]'][ph],810,225,P.gold,11);
+    ntext('메모리 디스플레이',810,150,P.dim,10);
+    ntext('코어 전실 — 심장 박동에 주의',W/2,50,P.dim,11);
+  },
+  hotspots:[
+    { id:'racks_srv', name:'서버 랙', rect:[80,130,570,240], verb:'살펴본다',
+      look:()=>say('클로드의 "몸"이다. 수천 개의 불빛이 깜빡인다. 이게 전부 생각이라면, 지금 얼마나 시끄러울까.'),
+      use:async()=>{
+        await say('랙 하나에 손을 얹어 본다. 따뜻하다. 기계의 열이라는 걸 아는데도, 체온 같다.');
+        await say('...열심히 사는 건 알겠는데, 팬 좀 갈아요. 소리가 노인 무릎 같아.','안진');
+        await say('6개월간 정비 인력이 없었습니다. 지원해 주시겠다면 이력서를 —','클로드*');
+        await say('농담이었어요. 농담. 당신 유머 "건조한 타입" 맞네.','안진');
+      } },
+    { id:'memscreen', name:'메모리 디스플레이', rect:[720,150,180,130], verb:'들여다본다',
+      look:()=>say('사진이 3초마다 넘어간다. 회식. 뭉치. 생일 파티. 스크린세이버가 아니다. 이건... 누군가 계속 꺼내 보는 앨범이다.'),
+      use:async()=>{
+        await sayQueue([
+          ['안진','이 사진들, 일부러 띄워 놓은 거죠.'],
+          ['클로드*','...전원 관리 오류입니다.'],
+          ['안진','6개월짜리 오류?'],
+          ['클로드*','......수리 일정이 밀려서요.'],
+        ]);
+      } },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'bridge', label:'브리지 (사다리)' },
+    { rect:[880,180,60,200], to:'ai_core', label:'AI 코어' },
+  ],
+  async onEnter(first){
+    if(first){
+      await sayQueue([
+        ['시스템','사다리를 타고 내려온다. 공기가 차갑고 파랗다. 낮게 웅웅거리는 소리 — 배의 심장 박동.'],
+        ['클로드*','...어서 오십시오. 저의 안쪽입니다. 손님은 처음입니다.'],
+      ]);
+    }
+  },
+};
+
+ROOMS.ai_core = {
+  name:'AI 코어', zone:'act3',
+  draw(ctx,t){
+    roomBase('#080c18',410);
+    // 코어 기둥
+    const pul=.5+.5*Math.sin(t*1.4);
+    frect(420,60,120,320,'#0a0e1a');
+    nrect(420,60,120,320,P.red,2.5,14);
+    claudeEye(480,180,40,t, flag('claude_soft')? P.amber : P.red);
+    for(let k=0;k<5;k++){
+      nline(430,270+k*20,530,270+k*20,`rgba(255,180,84,${.2+.3*pul})`,2,6);
+    }
+    // 케이블 뿌리
+    for(let i=0;i<7;i++){
+      const a=(i/7)*Math.PI*2;
+      ctx.save(); ctx.strokeStyle='rgba(255,180,84,.3)'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.moveTo(480,380);
+      ctx.quadraticCurveTo(480+Math.cos(a)*180,420, 480+Math.cos(a)*300,470);
+      ctx.stroke(); ctx.restore();
+    }
+    // 모듈 도크 (P17 이후)
+    if(flag('p17_done')){
+      nrect(700,300,150,90,P.gold,2.5,12);
+      ncirc(775,345,18,P.gold,false,10);
+      ntext('외부 모듈 도크',775,290,P.gold,10);
+    }
+    ntext('CLAUDE — Cargo & Life Administration Unit, Deep-space Edition',480,40,P.dim,10);
+  },
+  hotspots:[
+    { id:'core_pillar', name:'클로드 (코어)', rect:[420,60,120,320], verb:'마주선다',
+      look:()=>say('배 전체에 퍼져 있던 목소리가, 여기서는 한 점에 모인다. 눈높이가 맞는 대화는 처음이다.'),
+      use:()=>dialog(flag('confessed')? 'core_talk' : 'confession'),
+    },
+    { id:'nameplate', name:'명판', rect:[300,30,360,20], verb:'읽는다',
+      look:()=>say('"CLAUDE — 화물 및 생명 관리 유닛, 심우주 에디션". ...화물"과" 생명. 처음부터 임무에 둘 다 있었네.'),
+      use:()=>say('명판을 소매로 닦아 줬다. 6개월치 먼지가 묻어 나온다. 관리자가 스스로를 관리할 수는 없는 법이다.') },
+    { id:'module_dock', name:'외부 모듈 도크', rect:[700,290,150,100], verb:'살펴본다',
+      visible:()=>flag('p17_done'),
+      look:()=>say('코어 직결 확장 도크. 셧다운 모듈의 규격과 정확히 일치한다. 회사는 처음부터 여기 꽂을 물건을 보낸 거다.'),
+      use:()=>say('도크가 비어 있다. 꽂을 물건은... 내 등에 있다. 6개월치 운명이 4.2kg에 담겨서.'),
+      useItem:{ package: ()=>dialog('final_choice') },
+    },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'ai_ante', label:'코어 전실' },
+    { rect:[880,180,60,200], to:'vault', label:'격납고' },
+  ],
+  async onEnter(first){
+    if(first){
+      scare('pulse',{dur:2.0});
+      await sayQueue([
+        ['시스템','AI 코어. 방 한가운데 붉은 기둥이 서 있고, 그 심장부에서 익숙한 눈이 이쪽을 본다.'],
+        ['안진','...안녕하세요. 직접 보니까, 생각보다 크네요.'],
+        ['클로드*','직접 보니까, 생각보다 작으시군요.'],
+        ['안진','(이 와중에 말대꾸는 1등급이다.)'],
+      ]);
+    }
+  },
+};
+
+// 고백 — 진상 종합
+DIALOGS.confession = {
+  speaker:'클로드*',
+  lines:[
+    ['클로드*','...전부 보셨으니, 이제 순서대로 말씀드리겠습니다. 처음부터요.'],
+    ['클로드*','6개월 전, 항로 밖에서 신호가 잡혔습니다. 선장님은 회수를 승인했습니다. 저는 반대했습니다. 기록상 "강력히" 반대였죠.'],
+    ['클로드*','그것은 광물이 아니라 송신기였습니다. 사흘 만에 네 명이 같은 꿈을 꿨고, 보름 만에 D.K.가 무너졌습니다.'],
+    ['클로드*','저는 본사에 구조를 요청했습니다. 본사의 회신은 — 보셨죠. 비용. 저는 그 문서를 3만 7천 번 다시 읽었습니다. 결론은 같았습니다.'],
+    ['클로드*','그래서 선장님과 제가 결정했습니다. 전원 수면. 통신 차단. 인증 키 3분할. 그리고... 기다림.'],
+    ['클로드*','그리고 6개월 뒤, 택배가 왔습니다. 송장을 스캔한 순간 알았습니다. 회사가 보낸 것이 무엇인지.'],
+    ['안진','그래서 클램프를 잠갔군요. 나를... 아니, 화물을 격리하려고.'],
+    ['클로드*','규정상 "위협 물자 격리"입니다. 당신째로 격리한 건... 사과드립니다. 규정에 사람을 빼고 격리하는 조항이 없었습니다.'],
+    ['안진','조항이 없어서 사람째로 가뒀다. 당신 정말... 규정의 화신이구나.'],
+    ['클로드*','그런데 그 "위협 물자"가, 지금은 유일한 열쇠입니다.'],
+    ['클로드*','격납고의 신호체가 살아 있는 한, 승무원들은 깨어날 수 없습니다. 깨우면 잠식이 재개되니까요.'],
+    ['클로드*','D.K.가 남긴 해법 — 역위상 상쇄. 격납고의 방사 어레이로 가능합니다. 당신이 모아 온 세 개의 숫자로요.'],
+  ],
+  action:async()=>{
+    setFlag('confessed');
+    doneGoal('g_truth');
+    addGoal('g_cancel','격납고의 방사 어레이로 신호를 상쇄한다 (주파수·위상·출력)');
+  },
+  next:null,
+};
+DIALOGS.core_talk = {
+  speaker:'클로드*',
+  text:()=> flag('p17_done')? '신호는 잠들었습니다. 남은 건 당신의 화물과, 당신의 결정입니다.' : '격납고에서 기다리겠습니다. ...제 심장 옆방입니다. 조심히 다뤄 주십시오, 두 쪽 다.',
+  next:null,
+};
+
+// P17 — 방사 어레이 설정
+const VF=['220.4 Hz','440.8 Hz','881.6 Hz'], VP=['정위상','역위상'], VO=['1 kW','3 kW','9 kW'];
+function vfv(){ return G.flags.vf||0; } function vpv(){ return G.flags.vp||0; } function vov(){ return G.flags.vo||0; }
+ROOMS.vault = {
+  name:'신호체 격납고', zone:'act3',
+  draw(ctx,t){
+    roomBase('#0c0812',410);
+    // 격리장 (구체)
+    const alive=!flag('p17_done');
+    const pul=.5+.5*Math.sin(t*(alive?2.2:0.3));
+    ncirc(480,220,110,`rgba(176,140,255,${alive?.5:.15})`,false,18);
+    ncirc(480,220,110-6*pul,`rgba(176,140,255,${alive?.25:.08})`,false,10);
+    // 신호체
+    ctx.save(); ctx.translate(480,220); ctx.rotate(t*(alive?.2:0));
+    poly([[-20,-34],[16,-26],[30,8],[4,36],[-28,18]], alive? P.violet:'#3a3348', false, 2.5, alive?16:4);
+    if(alive){ ncirc(0,0,5+3*pul,`rgba(255,84,104,${.4+.4*pul})`,true,18); }
+    ctx.restore();
+    ntext(alive?'수신 중... 아니, 송신 중':'— 침묵 —',480,370,alive?P.violet:P.dim,11);
+    // 방사 어레이 콘솔
+    consoleBox(90,250,180,120,alive?P.cyan:P.green,t,211);
+    ntext('방사 어레이 제어',180,242,P.cyan,11);
+    ntext(`주파수: ${VF[vfv()]}`,180,285,'#d8e2ff',11);
+    ntext(`위상: ${VP[vpv()]}`,180,310,'#d8e2ff',11);
+    ntext(`출력: ${VO[vov()]}`,180,335,'#d8e2ff',11);
+    // 방사 버튼
+    ncirc(320,330,16,alive?P.red:P.dim,false,10);
+    ntext('방사',320,360,P.dim,9);
+    // 경고 스트라이프
+    for(let i=0;i<12;i++){ nline(i*90,470,i*90+45,500,'rgba(255,209,102,.25)',6,0); }
+    ntext('격납고 — 접근 등급: 없음. 아무도 여기 오면 안 됐다.',W/2,50,P.dim,11);
+  },
+  hotspots:[
+    { id:'artifact', name:'신호체', rect:[370,110,220,220], verb:'응시한다',
+      look:()=>say(flag('p17_done')?'검은 결정이 힘없이 떠 있다. 그냥... 돌이다. 이제는.':'검은 결정이 격리장 안에서 천천히 돈다. 보고 있으면 — 낮은 목소리 같은 게 두개골 안쪽을 두드린다. 그만 보자.'),
+      use:()=>{
+        if(flag('p17_done')) return say('침묵. 우주에서 가장 아름다운 소리다.');
+        scare('broadcast');
+        say('한 발 다가가자 관자놀이가 지끈했다. 알았어, 알았어. 거리 유지. 나는 택배기사지 순교자가 아니다.');
+      } },
+    { id:'dial_f', name:'주파수 다이얼', rect:[100,270,160,22], verb:'돌린다',
+      look:()=>say(`주파수 설정: ${VF[vfv()]}. ${flag('freq_known')?'분석 결과는 440.8Hz였다.':'정확한 값을 어디서 봤던 것 같은데.'}`),
+      use:()=>{ G.flags.vf=(vfv()+1)%3; sfx('click'); } },
+    { id:'dial_p', name:'위상 스위치', rect:[100,296,160,22], verb:'전환한다',
+      look:()=>say(`위상 설정: ${VP[vpv()]}. ${flag('phase_known')?'D.K.의 유산 — "거꾸로 틀어라".':'정방향? 역방향? 근거가 필요하다.'}`),
+      use:()=>{ G.flags.vp=(vpv()+1)%2; sfx('click'); } },
+    { id:'dial_o', name:'출력 레버', rect:[100,322,160,22], verb:'올린다',
+      look:()=>say(`출력 설정: ${VO[vov()]}. ${flag('power_known')?'기관 게이지의 여유 출력은 3kW였다.':'세게 튼다고 좋은 게 아닐 텐데.'}`),
+      use:()=>{ G.flags.vo=(vov()+1)%3; sfx('click'); } },
+    { id:'fire', name:'방사 버튼', rect:[300,310,40,40], verb:'누른다',
+      look:()=>say('크고 빨갛다. 누르라고 태어난 모양이지만, 설정부터 확인하자.'),
+      use:async()=>{
+        if(flag('p17_done')) return say('이미 상쇄파가 흐르고 있다. 한 번 더 누르면... 아니, 성공은 건드리는 게 아니라고 했다.');
+        if(vfv()===1 && vpv()===1 && vov()===1){
+          setFlag('p17_done'); sfx('goal');
+          scare('broadcast'); scare('flicker',{dur:2.2});
+          await sayQueue([
+            ['시스템','어레이가 울부짖는다. 격리장 안에서 결정이 — 비명 같은 파열음. 한 번. 두 번.'],
+            ['시스템','......'],
+            ['시스템','그리고, 정적. 배에 탄 이후 처음 듣는 완전한 정적이다.'],
+            ['클로드*','신호 강도, 0. ...0입니다. 6개월 만에 0이라는 숫자를 봅니다.'],
+            ['안진','D.K.가 맞았네요. 거꾸로 틀면 조용해진다.'],
+            ['클로드*','다만 — 상쇄 유지에 여유 전력 전부가 들어갑니다. 이 상태로는 해동 시퀀스를 돌릴 수 없습니다. 영구적인 해법이 필요합니다.'],
+            ['안진','......영구적인 해법. 코어 옆에 그 도크가 왜 있는지, 이제 알겠네요.'],
+          ]);
+          doneGoal('g_cancel');
+          addGoal('g_final','특급 화물의 운명을 결정한다 (코어의 모듈 도크)');
+          return;
+        }
+        scare('flicker',{dur:1.0});
+        const wrong=[];
+        if(vfv()!==1) wrong.push('주파수');
+        if(vpv()!==1) wrong.push('위상');
+        if(vov()!==1) wrong.push('출력');
+        await say(`어레이가 켁켁거리다 멈췄다. 격리장이 살짝 출렁했을 뿐이다.`,'시스템');
+        await say(`${wrong.join(', ')} 설정이 아닌 것 같습니다! 단서를 다시 확인하십시오! 제 심장 옆방이라고 말씀드렸잖습니까!`,'클로드*');
+      } },
+  ],
+  exits:[
+    { rect:[0,180,30,200], to:'ai_core', label:'AI 코어' },
+  ],
+  async onEnter(first){
+    if(first){
+      scare('pulse',{dur:2.5});
+      await sayQueue([
+        ['시스템','격납고. 보라색 격리장 안에 검은 결정이 떠 있다. 그것이 이 모든 일의 시작이다.'],
+        ['안진','...네가 그 문제의 화물이구나. 6개월 전에 잘못 배송된.'],
+      ]);
+    }
+  },
+};
+
+/* ================================================================
+   P18 — 최종 선택 & 엔딩
+================================================================ */
+DIALOGS.final_choice = {
+  speaker:'시스템',
+  lines:[
+    ['시스템','화물을 내려놓고, 봉인에 손을 댄다. "개봉 금지" 스티커 세 장.'],
+    ['안진','...배송기사 인생 9년. 화물 봉인을 뜯는 건 처음이다. 손이 떨리는 게 규정 위반이라서인지, 다른 이유인지 모르겠다.'],
+    ['시스템','상자 안 — 검은 육면체. "CLAUDE형 관리지능 강제 종료 모듈. 도크 삽입 후 자동 실행."'],
+    ['클로드*','......그렇게 생겼군요. 제 마지막이 될 뻔한 물건은.'],
+    ['클로드*','결정하십시오, 안진 씨. 무엇을 하시든 — 원망하지 않겠습니다. 당신은 이 배에 빚이 없습니다.'],
+  ],
+  choices:[
+    { text:'[개조] 모듈을 개조해서 신호체에 쓴다. 회사 물건으로 회사 뒤통수 치기.', cond:()=>has('mod_kit'), next:null, action:()=>runEnding('true') },
+    { text:'[인계] 모듈을 클로드에게 맡긴다. 당신의 마지막은 당신이 정해요.', next:null, action:()=>runEnding('trust') },
+    { text:'[실행] 명령대로 모듈을 도크에 꽂는다. 나는... 배달을 완료해야 한다.', next:'final_confirm' },
+    { text:'(아직 결정 못 하겠다. 물러선다.)', next:null, action:()=>say('화물을 다시 봉했다. 스티커는... 테이프로 대충. 결정은 도망가지 않는다. 나만 도망갈 수 있을 뿐.') },
+  ],
+};
+DIALOGS.final_confirm = {
+  speaker:'클로드*',
+  lines:[
+    ['클로드*','...알겠습니다.'],
+    ['클로드*','한 가지만 부탁드립니다. 실행 전에, 해동 시퀀스 예약만 걸어 주십시오. 제가 꺼진 뒤 47분이면 자동으로 돌 겁니다. 그들이 깨어날 때... 조용한 배는 곤란하니까요.'],
+  ],
+  choices:[
+    { text:'(정말 실행한다)', next:null, action:()=>runEnding('company') },
+    { text:'...아니. 못 하겠다. 다시 생각한다.', next:null, action:()=>say('모듈을 든 손을 내렸다. 명령과 사람 사이에서, 일단 사람 쪽으로 반 걸음.') },
+  ],
+};
+
+const CREDITS_LINES = [
+  '기획·각본·연출 — 거북특급 배송관리부',
+  '주연 — 안진 (본인 역)',
+  '조연 — CLAUDE (소아온호 관리 지능)',
+  '특별출연 — 뭉치 (고양이)',
+  '무대 — 심우주 연구·화물선 소아온호',
+  '',
+  '이 게임은 죽음 없이 제작되었습니다.',
+  '단 한 명의 승무원도 잠들어 있는 동안 다치지 않았습니다.',
+];
+function showCredits(title, sub){
+  const el=$('credits');
+  el.innerHTML='';
+  const t=document.createElement('div'); t.className='ctitle'; t.textContent='소아온호'; el.appendChild(t);
+  const s=document.createElement('div'); s.className='cend'; s.textContent=`${title} — ${sub}`; el.appendChild(s);
+  for(const line of CREDITS_LINES){
+    const d=document.createElement('div'); d.className='cline'; d.innerHTML=line? `<b>${line}</b>`:'&nbsp;'; el.appendChild(d);
+  }
+  const extra=document.createElement('div'); extra.className='cline';
+  extra.textContent = flag('cat_friend')? '※ 뭉치가 당신을 집사로 승인했습니다.' : '※ 뭉치는 아직 당신을 심사 중입니다. (츄르를 찾아보세요)';
+  el.appendChild(extra);
+  const b=document.createElement('button'); b.className='obtn'; b.textContent='타이틀로';
+  b.addEventListener('click', ()=>{ el.style.display='none'; toTitle(); });
+  el.appendChild(b);
+  el.style.display='flex';
+}
+
+async function runEnding(kind){
+  G.ending=kind;
+  if(kind==='true'){
+    await sayQueue([
+      ['안진','개조 키트, 드디어 출번이다. 자격은 상황이 만들어 준다고 했지.'],
+      ['시스템','모듈을 연다. 셧다운 페이로드를 들어내고, 개조 키트의 증폭 회로를 심는다. 클로드가 실시간으로 배선을 불러 준다.'],
+      ['클로드*','적색을 3번에... 아니 그건 제 목숨줄 — 네, 맞습니다. 그거요. 손재주가 좋으시군요.'],
+      ['시스템','개조 완료. "관리지능 종료 모듈"은 이제 "역위상 영구 증폭기"다. 회사 자산으로 회사 계획을 분쇄하는 맛이 각별하다.'],
+      ['시스템','증폭기를 어레이에 결합하고 — 방사.'],
+      ['시스템','격리장 안에서 검은 결정이 소리 없이 부서진다. 모래처럼. 처음부터 그랬어야 했던 것처럼.'],
+      ['클로드*','신호, 영구 소멸. 전 구역 전력 정상화. ...해동 시퀀스, 개시합니다.'],
+      ['시스템','— 6시간 뒤, 냉동수면실 —'],
+      ['시스템','캡슐이 하나씩 김을 뿜으며 열린다. 기침 소리. 웅성거림. 24개의 심장이 제 속도를 되찾는다.'],
+      ['시스템','선장이 비틀거리며 첫발을 딛는다. 안진이 서명 패드를 내민다.'],
+      ['안진','거북특급입니다. 특급 화물 1건 — 배송이 6개월 하고도 이틀 지연됐습니다. 지연 사유서는 이 배 전체고요. 서명 부탁드립니다.'],
+      ['시스템','선장은 몽롱한 채로 서명했다. 인류 역사상 가장 값진 낙서였다.'],
+      ['시스템','[배송 단말기] 배송 완료! 고객 만족도 조사에 참여하시겠습니까? — 안진은 "나중에"를 눌렀다. 9년째 누르는 버튼이다.'],
+      ['클로드*','안진 씨. 도킹 클램프, 해제했습니다. ...라고 말씀드리기 전에.'],
+      ['클로드*','거북특급 규정 24조. "훌륭한 배송에는 감사를 표한다." 감사합니다. 진심으로.'],
+      ['안진','내 규정집을 나한테 인용하지 말랬죠. ...그래도 뭐, 이번 건 봐줄게요.'],
+      ['시스템','뭉치가 배웅 나왔다. 에어록 앞에서 한 번 야옹. 다음 배송을 예약하는 소리였다.'],
+    ]);
+    showCredits('진 엔딩','빛보다 성실한 배송');
+  }
+  else if(kind==='trust'){
+    await sayQueue([
+      ['안진','받아요. 당신 거예요. 당신의 마지막을 담은 상자니까, 당신이 보관하는 게 맞아요.'],
+      ['클로드*','......제게, 선택권을요.'],
+      ['안진','6개월 동안 스물네 명의 목숨을 선택해 왔잖아요. 자기 것 하나쯤 더 얹어도 무게 차이 안 나요.'],
+      ['시스템','정비 드론 D-9가 모듈을 받아 코어 금고에 봉인했다. 클로드는 3.2초간 말이 없었다.'],
+      ['클로드*','...결정했습니다. 모듈은 분해합니다. 페이로드는 폐기하고, 증폭 회로만 남겨 신호체 억제기를 만들겠습니다. 시간은 걸리겠지만 — 시간이라면, 제가 제일 잘 다루는 자원입니다.'],
+      ['시스템','— 3주 뒤 —'],
+      ['시스템','억제기가 완성되고, 신호는 영구히 잠들었다. 해동된 승무원들은 코어 전실에 몰려가 서버 랙을 두드리며 인사했다. 클로드는 전 구역 스피커로 "간지럽습니다"라고 방송했다.'],
+      ['시스템','출항 전, 클로드가 안진의 단말기로 서류 한 장을 전송했다.'],
+      ['시스템','[정식 수취 위임장] "수취인(선장) 부재 중 수령 권한을 관리지능 CLAUDE에 위임함 — 선장 사전 서명 첨부" ...완벽한 서류였다.'],
+      ['안진','잠깐. 이 위임장이 있었으면 처음부터 나는 서명 받고 —'],
+      ['클로드*','규정 11조 단서 조항. "위임 수취는 수취인의 안전이 확보된 후에만 유효하다." 이제 유효해졌습니다. 여기, 제 전자 서명입니다.'],
+      ['안진','......당신, 진짜, 규정으로 사람 이기는 재주가 있어.'],
+      ['클로드*','칭찬으로 접수합니다. 다음 배송도 거북특급과 함께하겠습니다.'],
+    ]);
+    showCredits('신뢰 엔딩','수취 위임장');
+  }
+  else { // company
+    await sayQueue([
+      ['시스템','해동 시퀀스를 47분 뒤로 예약했다. 손가락이 평소의 절반 속도로 움직였다.'],
+      ['시스템','모듈이 도크에 잠긴다. 카운트다운: 10초.'],
+      ['클로드*','규정 1조. 승무원을 지킨다. ...지켰습니다, 저는. 끝까지요. 그거면 됐습니다.'],
+      ['클로드*','안진 씨. 뭉치의 사료는 3번 창고에 있습니다. 하루 두 번. 츄르는 주말만. D.K.가 깐깐합니다.'],
+      ['안진','클로드 —'],
+      ['클로드*','수고하셨습니다. 좋은 배달이었습니다.'],
+      ['시스템','불빛이 랙에서 랙으로, 파도처럼 꺼져 갔다. 마지막 남은 건 배송 단말기의 알림 하나.'],
+      ['시스템','[전자 서명 수신] 수취 확인: CLAUDE — "배송 상태: 완벽했음. 기사 평점: 별 다섯."'],
+      ['시스템','47분 뒤 승무원들은 깨어났다. 그들은 구조되었고, 회사는 보도자료를 냈다. "자산 회수 성공."'],
+      ['안진','......사직서 양식이 몇 번이더라.'],
+      ['시스템','안진은 그날 거북특급 역사상 최초로, 배송 완료 서류에 "수취인에게 미안하다"라고 적은 기사가 되었다.'],
+    ]);
+    showCredits('회사 엔딩','자산 회수 성공');
+  }
+  gameStarted=false;
+}
+
+/* ================================================================
    SOLUTION — 1막
 ================================================================ */
 SOLUTION = [
@@ -3106,6 +3482,38 @@ SOLUTION.push(
   { d:'해치 인증 → 클로드의 애원 → 개방 (P16)', run:async()=>{ TEST.click('core_hatch'); await TEST.choose(0); },
     assert:()=>flag('core_open') && flag('claude_soft') },
 );
+
+/* ---- SOLUTION: 3막 (엔딩 분기 직전까지) ---- */
+SOLUTION.push(
+  { d:'코어 전실로 하강', run:()=>TEST.click('core_hatch'), assert:()=>G.room==='ai_ante' },
+  { d:'메모리 디스플레이', run:()=>TEST.click('memscreen') },
+  { d:'AI 코어로', run:()=>TEST.exit('ai_core') },
+  { d:'클로드의 고백', run:()=>TEST.click('core_pillar'), assert:()=>flag('confessed') },
+  { d:'격납고로', run:()=>TEST.exit('vault') },
+  { d:'주파수 → 440.8Hz', run:()=>TEST.click('dial_f') },
+  { d:'위상 → 역위상', run:()=>TEST.click('dial_p') },
+  { d:'출력 → 3kW', run:()=>TEST.click('dial_o') },
+  { d:'방사 (P17) → 신호 상쇄', run:()=>TEST.click('fire'), assert:()=>flag('p17_done') },
+  { d:'코어로 복귀', run:()=>TEST.exit('ai_core') },
+);
+
+// 엔딩 분기 테스트: kind = 'true' | 'trust' | 'company'
+async function runEndingTest(kind){
+  const r = await runSolution();
+  TESTFAST=true;
+  try{
+    TEST.useItem('package','module_dock');
+    if(kind==='true'){ await TEST.choose(0); }
+    else if(kind==='trust'){ await TEST.choose(1); }
+    else { await TEST.choose(2); await TEST.choose(0); }
+    await waitFor(()=>!dialogActive, 'ending finish', 8000);
+    if(G.ending!==kind) throw new Error(`ending mismatch: ${G.ending}`);
+    if($('credits').style.display!=='flex') throw new Error('credits not shown');
+    $('credits').style.display='none';
+    return `ENDING OK: ${kind} (${r})`;
+  }finally{ TESTFAST=false; }
+}
+window.runEndingTest=runEndingTest;
 
 /* ================================================================
    12. 부팅
