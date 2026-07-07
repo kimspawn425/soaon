@@ -302,7 +302,7 @@ function doorShape(x,y,w,h,c,open=false,label=''){
     nline(x+w/2,y+8,x+w/2,y+h-8,c,2,8);
     ncirc(x+w/2,y+h/2,7,c);
   }
-  if(label) ntext(label,x+w/2,y-10,c,12);
+  // 라벨은 drawExitMarkers가 전담 (중복 방지)
 }
 function consoleBox(x,y,w,h,c,t,seed=3){
   frect(x,y,w,h,'#0a1020'); nrect(x,y,w,h,c,2,10);
@@ -416,8 +416,37 @@ function drawFrame(){
   const t=(performance.now()-time0)/1000;
   const r=curRoom();
   ctx.clearRect(0,0,W,H);
-  if(r){ r.draw(ctx,t); drawFx(t); }
+  if(r){ r.draw(ctx,t); drawFx(t); drawExitMarkers(t); }
   requestAnimationFrame(drawFrame);
+}
+
+// 모든 활성 출구에 방향 화살표 + 라벨을 항상 표시 (길 잃음 방지)
+function drawExitMarkers(t){
+  if(dialogActive) return;
+  for(const e of activeExits()){
+    const [x,y,w,h]=e.rect;
+    const locked = !!(e.locked && e.locked());
+    const c = locked ? P.dim : P.cyan;
+    const bob = locked ? 0 : Math.sin(t*3.2)*4;
+    const a = locked ? 0.4 : (0.62+0.38*Math.sin(t*2.6));
+    const label = (e.label||'이동') + (locked?' (잠김)':'');
+    ctx.save();
+    ctx.globalAlpha=a; glow(c, locked?4:11); ctx.strokeStyle=c; ctx.lineWidth=3.5;
+    if(x<=8){                       // 왼쪽 가장자리 출구
+      const midY=y+h/2, px=x+w+10-bob;
+      ctx.beginPath(); ctx.moveTo(px+15,midY-11); ctx.lineTo(px,midY); ctx.lineTo(px+15,midY+11); ctx.stroke();
+      ntext(label, x+w+26, midY-16, c, 12, 'left');
+    } else if(x+w>=W-8){            // 오른쪽 가장자리 출구
+      const midY=y+h/2, px=x-10+bob;
+      ctx.beginPath(); ctx.moveTo(px-15,midY-11); ctx.lineTo(px,midY); ctx.lineTo(px-15,midY+11); ctx.stroke();
+      ntext(label, x-26, midY-16, c, 12, 'right');
+    } else {                        // 정면/내부 문
+      const cx=x+w/2, cy=Math.max(30, y-16)-bob*0.5;
+      ctx.beginPath(); ctx.moveTo(cx-8,cy-8); ctx.lineTo(cx,cy); ctx.lineTo(cx+8,cy-8); ctx.stroke();
+      ntext(label, cx, Math.max(16, y-26), c, 12, 'center');
+    }
+    ctx.restore();
+  }
 }
 /* ---------- 공포 연출 (scare) ---------- */
 const FX = [];
@@ -1550,7 +1579,6 @@ ROOMS.hub = {
     doorShape(820,170,90,210,flag('act2_open')?P.violet:P.red,flag('act2_open'),'거주 구역');
     // 브리지 계단 (중앙 안쪽)
     nrect(430,140,100,120,flag('bridge_open')?P.cyan:P.dim,2,10);
-    ntext('브리지',480,132,P.cyan,11);
     for(let i=0;i<4;i++){ nline(430,260-i*14,530,260-i*14,'rgba(84,224,255,.35)',2,2); }
     // 키패드
     nrect(545,190,26,40,flag('bridge_open')?P.green:P.gold,1.5,8);
