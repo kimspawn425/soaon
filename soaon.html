@@ -626,7 +626,7 @@ cv.addEventListener('click', async ev=>{
   if(!hit){ deselectItem(); return; }
   if(hit.type==='exit'){
     deselectItem();
-    if(hit.e.locked && hit.e.locked()){ say(hit.e.lockedMsg||'잠겨 있다.'); return; }
+    if(hit.e.locked && hit.e.locked()){ const m=hit.e.lockedMsg; say((typeof m==='function'?m():m)||'잠겨 있다.'); return; }
     goto(hit.e.to); return;
   }
   const h=hit.h;
@@ -1473,9 +1473,13 @@ ROOMS.cargo_check = {
     { id:'locker', name:'비상 공구함', rect:[300,142,70,98], verb:'열어본다',
       visible:()=>flag('cargo_power'),
       look:()=>say('"비상시 개방". 지금이 비상이 아니면 뭐가 비상이겠어.'),
-      use:()=>{
+      use:async()=>{
         if(flag('crank_taken')) return say('이제 텅 비었다. 크랭크는 내 손에.');
         setFlag('crank_taken'); give('crank');
+        if(!flag('claude_intro')){
+          await say('비상 크랭크다. 도킹 베이의 클램프 제어반에 "수동 해제 삽입구"가 있었지. 저기다 쓰면 되겠다.');
+          if(!flag('g_crank_added')){ setFlag('g_crank_added'); addGoal('g_crank','비상 크랭크를 도킹 베이의 클램프 제어반에 사용한다'); }
+        }
       } },
     { id:'terminal', name:'검수 단말기', rect:[430,212,130,98], verb:'조회한다',
       visible:()=>flag('cargo_power'),
@@ -1517,7 +1521,9 @@ ROOMS.cargo_check = {
     { rect:[0,180,30,205], to:'dock_bay', label:'도킹 베이' },
     { rect:[840,180,85,205], to:'hub', label:'중앙 복도',
       locked:()=>!flag('hub_open'),
-      lockedMsg:'격벽이 굳게 닫혀 있다. 옆의 인터컴이 "나 좀 눌러봐" 하는 얼굴로 붙어 있다.' },
+      lockedMsg:()=> !flag('claude_intro')
+        ? '격벽이 굳게 닫혀 있다. 인터컴을 눌러도 응답이 없다. ...먼저 도킹 베이로 돌아가 클램프부터 어떻게든 해봐야겠다.'
+        : '격벽이 굳게 닫혀 있다. 옆의 인터컴이 "나 좀 눌러봐" 하는 얼굴로 붙어 있다.' },
   ],
   async onEnter(first){
     if(first){
