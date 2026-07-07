@@ -46,6 +46,12 @@
     border:1px solid rgba(60,80,140,.35);
     text-shadow:0 0 10px currentColor;
   }
+  .subline .cont{
+    margin-left:10px; font-size:13px; color:var(--dim); text-shadow:none;
+    animation:blink 1s steps(2,start) infinite;
+  }
+  @keyframes blink{ 50%{opacity:0;} }
+  #cv.reading{ cursor:none; }
   .sp-anjin{color:#cfe6ff;}
   .sp-claude{color:var(--red);}
   .sp-claude2{color:var(--amber);}
@@ -365,9 +371,12 @@ function sayNow(text, speaker='안진'){
     d.className='subline '+(SPEAKER_CLS[speaker]||'sp-anjin');
     const label = speaker.endsWith('*')? speaker.slice(0,-1) : speaker; // '클로드*' = 부드러워진 클로드(색만 다름)
     d.textContent = speaker==='시스템'? text : `${label==='안진'?'':label+': '}${text}`;
+    const hint=document.createElement('span'); hint.className='cont'; hint.textContent='▼';
+    d.appendChild(hint);
     subsEl.appendChild(d);
     sayBusy = true;
     sayResolve = res;
+    cv.classList.add('reading'); cv.style.cursor='none'; hideLabel();  // 대사 중엔 커서 숨김 + 호버 라벨 제거
     const dur = clamp(1100 + text.length*75, 1600, 7000);
     sayTimer = setTimeout(()=>finishSay(), dur);
   });
@@ -375,6 +384,7 @@ function sayNow(text, speaker='안진'){
 function finishSay(){
   if(sayTimer){ clearTimeout(sayTimer); sayTimer=null; }
   subsEl.innerHTML=''; sayBusy=false;
+  cv.classList.remove('reading'); cv.style.cursor='crosshair';
   const r=sayResolve; sayResolve=null;
   if(r) r();
 }
@@ -634,7 +644,8 @@ function hideLabel(){ hlabel.style.display='none'; }
 
 cv.addEventListener('mousemove', ev=>{
   const [x,y]=canvasPos(ev); mouseX=x; mouseY=y;
-  if(dialogActive){ hideLabel(); return; }
+  if(sayBusy){ hideLabel(); return; }        // 대사 중: 커서 숨김(.reading), 라벨 없음
+  if(dialogActive){ hideLabel(); cv.style.cursor='default'; return; }
   const hit=hitTest(x,y);
   if(!hit){ hideLabel(); cv.style.cursor='crosshair'; return; }
   cv.style.cursor='pointer';
