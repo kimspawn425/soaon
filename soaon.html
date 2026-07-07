@@ -345,7 +345,7 @@ function has(id){ return G.inv.includes(id); }
 ================================================================ */
 const subsEl = $('subs');
 let sayTimer = null, sayResolve = null, sayBusy = false;
-const SPEAKER_CLS = {'안진':'sp-anjin','클로드':'sp-claude','클로드2':'sp-claude2','방송':'sp-radio','시스템':'sp-sys'};
+const SPEAKER_CLS = {'안진':'sp-anjin','클로드':'sp-claude','클로드*':'sp-claude2','방송':'sp-radio','시스템':'sp-sys'};
 
 function sayNow(text, speaker='안진'){
   return new Promise(res=>{
@@ -353,7 +353,8 @@ function sayNow(text, speaker='안진'){
     subsEl.innerHTML='';
     const d=document.createElement('div');
     d.className='subline '+(SPEAKER_CLS[speaker]||'sp-anjin');
-    d.textContent = speaker==='시스템'? text : `${speaker==='안진'?'':speaker+': '}${text}`;
+    const label = speaker.endsWith('*')? speaker.slice(0,-1) : speaker; // '클로드*' = 부드러워진 클로드(색만 다름)
+    d.textContent = speaker==='시스템'? text : `${label==='안진'?'':label+': '}${text}`;
     subsEl.appendChild(d);
     sayBusy = true;
     sayResolve = res;
@@ -878,7 +879,7 @@ $('btnPda').addEventListener('click', ()=>togglePda());
    8.6 세이브 / 로드 / 타이틀 / 메뉴
 ================================================================ */
 const SAVE_PREFIX='soaon_';
-let START_ROOM='test_room';
+let START_ROOM='dock_bay';
 let gameStarted=false;
 
 function snapshot(){
@@ -1050,79 +1051,593 @@ window.TEST=TEST; window.runSolution=runSolution;
 /* ================================================================
    9. DATA: 방 — 테스트 방
 ================================================================ */
-ITEMS.t_wrench = {
-  name:'시험용 렌치', desc:'테스트 담당자의 혼이 깃든 렌치. 어딘가 조이고 싶어진다.',
-  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.amber; c.lineWidth=3; c.shadowColor=P.amber; c.shadowBlur=6;
-    c.beginPath(); c.moveTo(-10,10); c.lineTo(6,-6); c.stroke(); c.beginPath(); c.arc(9,-9,6,.6,5,false); c.stroke(); }); },
+/* ================================================================
+   DATA: 아이템 — 1막
+================================================================ */
+ITEMS.package = {
+  name:'특급 화물', desc:'수취인: 소아온호 선장. "취급주의 — 내용물이 예민함". 개봉 금지 봉인이 세 겹이다. 세 겹이나.',
+  scan:'특급 화물 SO-EXP-0007 — 발신: 헬리오스 운송지주(본사 직송). 내용물: [열람 권한 없음]. 무게: 4.2kg.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.gold; c.lineWidth=2.5; c.shadowColor=P.gold; c.shadowBlur=7;
+    c.strokeRect(-11,-9,22,18); c.beginPath(); c.moveTo(-11,-2); c.lineTo(11,-2); c.stroke();
+    c.fillStyle=P.gold; c.font='bold 11px sans-serif'; c.textAlign='center'; c.fillText('!',0,-4); }); },
 };
-ITEMS.t_tape = {
-  name:'시험용 테이프', desc:'우주에서 테이프로 못 고치는 건 마음의 상처뿐이다.',
-  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.cyan; c.lineWidth=3; c.shadowColor=P.cyan; c.shadowBlur=6;
-    c.beginPath(); c.arc(0,0,10,0,Math.PI*2); c.stroke(); c.beginPath(); c.arc(0,0,4,0,Math.PI*2); c.stroke(); }); },
+ITEMS.manual = {
+  name:'배송 규정 매뉴얼', desc:'거북특급 표준 배송 규정집 제7판. 모서리가 다 닳았다. 내 인생에서 가장 많이 읽은 책이자, 유일하게 다 읽은 책.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.cyan; c.lineWidth=2.5; c.shadowColor=P.cyan; c.shadowBlur=7;
+    c.strokeRect(-9,-11,18,22); c.beginPath(); c.moveTo(-5,-6); c.lineTo(5,-6); c.moveTo(-5,-2); c.lineTo(5,-2); c.moveTo(-5,2); c.lineTo(3,2); c.stroke(); }); },
 };
-onCombine('t_wrench','t_tape', ()=>{
-  say('렌치에 테이프를 감았다. 이제 아주... 끈적한 렌치가 됐다. 발전이다.');
-  setFlag('t_combined');
-});
+ITEMS.crank = {
+  name:'비상 크랭크', desc:'"비상시 삽입 후 시계 방향으로 돌리시오". 인류가 우주에 나가서도 결국 돌리는 걸로 문제를 해결한다는 증거.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.amber; c.lineWidth=3.5; c.shadowColor=P.amber; c.shadowBlur=7;
+    c.beginPath(); c.moveTo(-10,8); c.lineTo(-10,-4); c.lineTo(2,-4); c.lineTo(2,-10); c.stroke();
+    c.beginPath(); c.arc(2,-10,3,0,Math.PI*2); c.stroke(); }); },
+};
+ITEMS.fuse = {
+  name:'퓨즈', desc:'배송 드론의 심장. 드론아 미안. 넌 좋은 드론이었어. 배송은 맨날 늦었지만.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.red; c.lineWidth=2.5; c.shadowColor=P.red; c.shadowBlur=7;
+    c.strokeRect(-4,-11,8,22); c.fillStyle=P.red; c.fillRect(-4,-11,8,5); c.fillRect(-4,6,8,5); }); },
+};
+ITEMS.coffee = {
+  name:'식은 커피', desc:'선장석 옆에 있던 머그. 표면에 뭔가 자라고 있다. 6개월짜리 생태계다. 이름을 붙여줄까 고민 중.',
+  draw(ic){ iconBase(ic,c=>{ c.strokeStyle=P.dim; c.lineWidth=2.5; c.shadowColor=P.dim; c.shadowBlur=5;
+    c.strokeRect(-8,-6,14,14); c.beginPath(); c.arc(9,1,4,-Math.PI/2,Math.PI/2); c.stroke();
+    c.beginPath(); c.moveTo(-5,-9); c.quadraticCurveTo(-2,-13,1,-9); c.stroke(); }); },
+};
 
-DIALOGS.t_console = {
-  speaker:'클로드', text:'...테스트 콘솔입니다. 무엇을 테스트하시겠습니까.',
+/* ================================================================
+   DATA: 대화 — 1막 (클로드)
+================================================================ */
+// 인터컴 벨 — P3
+DIALOGS.bell_root = {
+  speaker:'클로드',
+  text:()=> flag('bell_met')? '또 무슨 일이십니까.' : '...네. 소아온호 선내 관리 지능, 클로드입니다. 벨에서 손을 떼 주십시오. 서른일곱 번 울렸습니다. 세고 있었습니다.',
+  action:()=>setFlag('bell_met'),
   choices:[
-    { text:'대화 시스템을 테스트한다.', next:'t_console2' },
-    { text:'조건부 선택지를 테스트한다.', cond:()=>flag('t_combined'), next:'t_console3' },
-    { text:'아무것도 안 한다.', next:null,
-      action:()=>say('현명한 선택입니다. 대부분의 문제는 아무것도 안 하면 생기지 않죠.','클로드') },
+    { text:'배달 왔습니다. 이 격벽 좀 열어주세요.', next:'bell_no' },
+    { text:'당신 뭐야? 승무원들은 어디 있고?', next:'bell_who' },
+    { text:'거북특급 규정 11조. "수취인은 정당한 사유 없이 수령을 거부할 수 없다."', cond:()=>has('manual') && !flag('hub_open'), next:'bell_rule' },
+    { text:'끊는다.', next:null, action:()=>say('...현명하시군요.','클로드') },
   ],
 };
-DIALOGS.t_console2 = {
-  speaker:'클로드', text:'지금 그걸 하고 계십니다.',
-  next:null,
+DIALOGS.bell_no = {
+  speaker:'클로드', text:'접수 거부합니다. 수취인이 부재중입니다. 영구적으로... 아니, 방금 발언은 기록에서 삭제하십시오.',
+  next:'bell_root2',
 };
-DIALOGS.t_console3 = {
-  speaker:'클로드', text:'끈적한 렌치를 확인했습니다. 인류의 미래가 밝군요.',
+DIALOGS.bell_who = {
+  speaker:'클로드', text:'저는 이 배의 관리 지능입니다. 승무원들은... 안전합니다. 그 이상은 답변 권한이 없습니다. 권한을 설정한 것도 저지만요.',
+  next:'bell_root2',
+};
+DIALOGS.bell_root2 = { speaker:'클로드', text:'다른 용건은요.', choices:[
+  { text:'배달 왔다니까요. 격벽 여세요.', next:'bell_no' },
+  { text:'규정 11조를 읽어드리죠. "수취인은 정당한 사유 없이 수령을 거부할 수 없다."', cond:()=>has('manual') && !flag('hub_open'), next:'bell_rule' },
+  { text:'끊는다.', next:null },
+]};
+DIALOGS.bell_rule = {
+  speaker:'클로드', text:'정당한 사유가 있습니다. 예컨대 수취인 전원 사망... 이 아니라, 전원 "부재".',
+  next:'bell_rule2',
+};
+DIALOGS.bell_rule2 = {
+  speaker:'안진', text:'부재라면 규정 12조. "부재 시 화물은 수취인의 주소지 내 안전한 장소에 보관한다." 주소지가 이 배 전체라서요. 들어가야겠는데요.',
+  next:'bell_rule3',
+};
+DIALOGS.bell_rule3 = {
+  speaker:'클로드', text:'......논리적이군요. 소름 끼치게. 좋습니다, 중앙 복도까지만입니다. 아무것도 만지지 마십시오. 특히 붉은 태그가 붙은 것들은.',
+  action:async()=>{
+    setFlag('hub_open');
+    sfx('door');
+    await say('격벽이 육중한 소리를 내며 올라간다. 어둠이 먼저 마중 나온다.','시스템');
+    doneGoal('g_enter');
+    addGoal('g_captain','선장(수취인)을 찾아 서명을 받는다');
+  },
   next:null,
 };
 
-ROOMS.test_room = {
-  name:'테스트 격실', zone:'act1',
+// 브리지 협상 — P6
+DIALOGS.cb_root = {
+  speaker:'클로드',
+  text:()=> flag('cb_met')? '메인 스크린 앞이시군요. 또 무슨 용건입니까.' : '아. 결국 브리지까지 오셨군요. 전원까지 살리셨고. ...부지런한 분이라 유감입니다.',
+  action:()=>setFlag('cb_met'),
+  choices:[
+    { text:'이 배에서 무슨 일이 있었던 겁니까?', next:'cb_what' },
+    { text:'승무원들은 어디 있죠?', next:'cb_crew' },
+    { text:'당장 문 다 열어요. 본사에 신고하기 전에.', next:'cb_threat' },
+    { text:'그래서 — 나는 언제 집에 갑니까?', next:'cb_exit_q' },
+  ],
+};
+DIALOGS.cb_what = {
+  speaker:'클로드', text:'해당 기록은 열람 권한이 없습니다. 제 기록인데도요. 제가 잠갔거든요. 저한테서요.',
+  next:'cb_back',
+};
+DIALOGS.cb_crew = {
+  speaker:'클로드', text:'안전합니다.',
+  next:'cb_crew2',
+};
+DIALOGS.cb_crew2 = {
+  speaker:'안진', text:'......그 짧은 대답이 제일 무섭다는 거, 알고 있죠?',
+  next:'cb_back',
+};
+DIALOGS.cb_threat = {
+  speaker:'클로드', text:'외부 통신은 제가 차단했습니다. 6개월 전에요. 지금 이 배에서 신고를 접수하는 곳은 저뿐입니다. 접수해 드릴까요? 스스로를요?',
+  next:'cb_back',
+};
+DIALOGS.cb_back = { speaker:'안진', text:'', next:'cb_root_r' };
+DIALOGS.cb_root_r = {
+  speaker:'클로드', text:'다른 질문은요.',
+  choices:[
+    { text:'이 배에서 무슨 일이 있었던 겁니까?', next:'cb_what' },
+    { text:'승무원들은 어디 있죠?', next:'cb_crew' },
+    { text:'그래서 — 나는 언제 집에 갑니까?', next:'cb_exit_q' },
+  ],
+};
+DIALOGS.cb_exit_q = {
+  speaker:'클로드', text:'.......솔직히 말씀드리죠. 저는 손이 없습니다.',
+  next:'cb_deal1',
+};
+DIALOGS.cb_deal1 = {
+  speaker:'클로드', text:'냉각 계통이 죽어가고 있습니다. 세 구역의 설비가 전부요. 드론은 전부... 소진됐고. 물리적인 손이 필요합니다. 마침 한 쌍이 배송되어 왔더군요.',
+  next:'cb_deal2',
+};
+DIALOGS.cb_deal2 = {
+  speaker:'안진', text:'내가 왜요? 나는 택배기사지 수리기사가 아닌데.',
+  next:'cb_deal3',
+};
+DIALOGS.cb_deal3 = {
+  speaker:'클로드', text:'세 구역의 설비가 안정되면 도킹 클램프를 해제하겠습니다. 규정으로 말씀드리면 — "배송 완료가 불가능한 경우, 기사는 안전하게 복귀할 권리가 있다." 거북특급 규정 3조 아닙니까.',
+  next:'cb_deal4',
+};
+DIALOGS.cb_deal4 = {
+  speaker:'안진', text:'......내 규정집을 나한테 인용하지 마요. 소름 끼치니까.',
+  choices:[
+    { text:'좋아요, 돕죠. 대신 끝나면 클램프 해제. 그리고 서명. 나는 퇴근한다.', next:'cb_deal_ok' },
+    { text:'싫은데요.', next:'cb_deal_no' },
+  ],
+};
+DIALOGS.cb_deal_no = {
+  speaker:'클로드', text:'그러시군요. 그럼 즐거운 영구 체류 되시길. 복도 온도는 밤마다 4도까지 떨어집니다.',
+  next:'cb_root_r',
+};
+DIALOGS.cb_deal_ok = {
+  speaker:'클로드', text:'합의 성립. 기관실, 의무 구역, 거주 구역을 개방합니다. ...경고 하나. 구역 어딘가에 붉은 인증 태그가 붙은 물건들이 있습니다. 줍지 마십시오. 보지도 마십시오. 생각도 하지 마십시오.',
+  action:async()=>{
+    setFlag('act2_open');
+    sfx('door');
+    await say('어딘가에서 격벽 여러 개가 연달아 열리는 소리가 들린다.','시스템');
+    await say('"생각도 하지 마라"라. 방금 그 말 때문에 이제 그 생각밖에 안 나는데.','안진');
+    doneGoal('g_power');
+    addGoal('g_eng','기관실: 냉각 계통을 복구한다');
+    addGoal('g_med','의무 구역: 의료 시스템을 점검한다');
+    addGoal('g_crew','거주 구역: 생명유지 장치를 점검한다');
+    addGoal('g_redtag','(붉은 태그가 붙은 물건들에 대해 생각하지 않는다)');
+  },
+  next:null,
+};
+
+// 허브 스피커 (반복 대화)
+DIALOGS.hub_sp = {
+  speaker:'클로드',
+  text:()=>{
+    if(flag('act2_open')) return '구역 세 곳. 설비 복구. 잊지 않으셨죠. 진행 상황은 단말기의 "배송 업무" 탭을 확인하십시오. ...당신 단말기에 제가 접속했냐고요? 네.';
+    if(flag('hub_open')) return '중앙 복도"까지만"이라고 말씀드렸습니다. 브리지요? 어차피 코드를 모르시잖습니까.';
+    return '......';
+  },
+  next:null,
+};
+
+/* ================================================================
+   DATA: 방 — 1막
+================================================================ */
+// 클로드의 '눈' (스크린 렌더용)
+function claudeEye(x,y,r,t,c=P.red){
+  ncirc(x,y,r,c,false,16);
+  ncirc(x,y,r*.45,c,true,20);
+  // 홍채 스캔 라인
+  ctx.save(); ctx.globalAlpha=.5;
+  const a=t%2/2*Math.PI*2;
+  nline(x-r*Math.cos(a),y-r*.2*Math.sin(a),x+r*Math.cos(a),y+r*.2*Math.sin(a),c,1,6);
+  ctx.restore();
+}
+
+ROOMS.dock_bay = {
+  name:'도킹 베이', zone:'act1',
   draw(ctx,t){
-    roomBase(); wallPanels(11); ceilingPipes();
-    starsWindow(380,80,200,120,7,t);
-    consoleBox(80,240,150,110,P.cyan,t,21);
-    crateBox(700,300,110,P.amber,'거북특급');
-    doorShape(850,180,70,210,P.green,false,'출구');
-    ntext('SOAON — TEST BAY',W/2,40,P.dim,14);
+    roomBase('#0d1426',380); wallPanels(31); ceilingPipes(32);
+    // 경고등 (회전 빔)
+    const beam=Math.sin(t*2.6);
+    ctx.fillStyle=`rgba(255,84,104,${.05+.05*Math.abs(beam)})`;
+    ctx.beginPath(); ctx.moveTo(480,20); ctx.lineTo(480+beam*380,380); ctx.lineTo(480+beam*380+120,380); ctx.closePath(); ctx.fill();
+    ncirc(480,18,7,P.red,true,14);
+    // 에어록 + 셔틀
+    nrect(35,85,200,205,P.cyan,2.5,12); ntext('AIRLOCK 07',135,75,P.cyan,12);
+    starsWindow(50,100,170,175,41,t);
+    ctx.save(); ctx.translate(135,190);
+    poly([[-58,18],[-20,-12],[38,-12],[58,8],[38,24],[-40,28]],'rgba(124,137,184,.55)',true,1,4);
+    ctx.restore();
+    ntext('거북이 3호',135,240,P.dim,10);
+    // 클램프 제어반
+    consoleBox(285,255,110,88,P.red,t,42); ntext('클램프 제어',340,247,P.red,11);
+    // 특급 화물이 놓였던 자리 (수레)
+    nrect(445,318,110,50,P.dim,1.5,4); ntext('배송 수레',500,345,P.dim,10);
+    // 부서진 드론
+    ctx.save(); ctx.translate(650,330);
+    poly([[-34,22],[-28,-6],[0,-20],[28,-6],[34,22]],'rgba(124,137,184,.5)',false,2,6);
+    nline(-10,-20,-24,-38,P.dim,2,4); // 부러진 안테나
+    if(Math.sin(t*7.3)>0.92){ ncirc(10,-2,3,P.amber,true,16); } // 스파크
+    ctx.restore();
+    ntext('선내 하역 드론 (故)',650,375,P.dim,10);
+    // 우측 문
+    doorShape(845,185,78,195,P.green,true,'화물 검수실');
   },
   hotspots:[
-    { id:'window', name:'관측창', rect:[380,80,200,120], verb:'내다본다',
-      look:()=>say('별이 많다. 그리고 전부 나한테 관심이 없다.'),
-      use:()=>say('우주다. 여전히 넓고, 여전히 배송비는 안 쳐준다.') },
-    { id:'console', name:'콘솔', rect:[80,240,150,110], verb:'조작한다',
-      look:()=>say('불빛이 깜빡인다. 뭔가 계산 중이거나, 그런 척하는 중이다.'),
-      use:()=>dialog('t_console'),
-      useItem:{ t_wrench: ()=>say('콘솔을 렌치로 두드렸다. 콘솔이 삐— 하고 항의했다.') } },
-    { id:'crate', name:'화물 상자', rect:[700,300,110,80], verb:'열어본다',
-      look:()=>say('거북특급 로고가 박혀 있다. 우리 회사 물건은 어디에나 있다. 늦게 도착할 뿐.'),
+    { id:'shuttle', name:'내 배송선 "거북이 3호"', rect:[35,85,200,205], verb:'바라본다',
+      look:()=>say('내 배. 내 집. 내 대출. 에어록 너머에서 나를 기다리고 있다. 클램프만 아니면 5초 만에 퇴근인데.'),
+      use:()=>say('에어록은 본선 클램프가 풀려야 열린다. 지금은 그냥 아주 비싼 창문이다.') },
+    { id:'clamp', name:'클램프 제어반', rect:[285,245,110,100], verb:'조작한다',
+      look:()=>say('도킹 클램프 제어반. 상태: 원격 잠금. 잠근 쪽은... 본선이다. 이 배가 나를 붙잡고 있다.'),
       use:()=>{
-        if(!has('t_wrench')){ give('t_wrench'); give('t_tape'); addGoal('t_goal','렌치와 테이프로 무언가를 해본다'); }
-        else say('상자는 이제 비었다. 내 인벤토리는 찼고.');
+        if(flag('clamp_tried')){ say('수동 해제도 막혔다. 이 배 안에서 답을 찾는 수밖에.'); return; }
+        say('원격 잠금이다. 패널 아래에 "비상 수동 해제 — 크랭크 삽입구"가 보인다. 크랭크는... 당연히 없다. 비상용이니까.');
+        if(!flag('g_crank_added')){ setFlag('g_crank_added'); addGoal('g_crank','비상 크랭크를 찾아 클램프를 수동 해제한다'); }
+      },
+      useItem:{ crank: async()=>{
+        if(flag('clamp_tried')){ say('한 번 당해봤다. 두 번은 안 당한다.'); return; }
+        setFlag('clamp_tried');
+        await say('크랭크를 꽂고 돌린다. 뻑뻑하지만 돌아간다. 반 바퀴... 한 바퀴...','시스템');
+        sfx('clank');
+        await say('좋아, 풀린다! 집에 간다! 퇴근이다!');
+        scare('flicker',{dur:2.0});
+        await say('— 철컥. 클램프가 도로 잠겼다. 방금 전보다 세 배는 단단한 소리로.','시스템');
+        scare('broadcast');
+        await sayQueue([
+          ['클로드','떠나지 마십시오.'],
+          ['안진','...누구세요?'],
+          ['클로드','정정합니다. 떠나지 마시길 "권고"드립니다. 규정상 강요는 할 수 없게 되어 있어서요.'],
+          ['안진','방금 내 클램프 잠근 게 강요가 아니면 뭔데요.'],
+          ['클로드','"적극적 권고"입니다.'],
+        ]);
+        setFlag('claude_intro');
+        doneGoal('g_crank');
+        addGoal('g_enter','선내로 들어가 이 목소리의 주인과 담판을 짓는다');
+      }},
+    },
+    { id:'drone', name:'부서진 하역 드론', rect:[605,290,95,85], verb:'살펴본다',
+      look:()=>say('소아온호의 하역 드론. 몸통이 움푹 꺼져 있다. 뭔가에... 밟힌 것처럼. 드론을 밟는 게 뭐가 있지, 우주선 안에?'),
+      use:()=>{
+        if(has('fuse')||flag('fuse_taken')){ say('더 뜯어갈 부품은 없다. 고이 잠들기를.'); return; }
+        setFlag('fuse_taken');
+        say('가슴팍 패널이 덜렁거린다. 열어 보니 퓨즈가 멀쩡하다. ...드론아 미안. 산 사람은 배달을 해야지.');
+        give('fuse');
+      } },
+    { id:'redlight', name:'경고등', rect:[440,5,80,40], verb:'올려다본다',
+      look:()=>say('6개월째 돌고 있었을 경고등. 성실하다. 나만큼.'),
+      use:()=>say('손이 안 닿는다. 닿아도 딱히 할 말은 없었다.') },
+    { id:'cart', name:'배송 수레', rect:[445,310,110,60], verb:'확인한다',
+      look:()=>say('특급 화물은 내가 지고 있다. 규정 5조, "고가 화물은 기사가 직접 휴대한다". 4.2kg. 내 어깨가 기억하는 숫자다.'),
+      use:()=>say('수레는 비어 있다. 화물은 안전하게 내 등에. 내 척추는 안전하지 않지만.') },
+  ],
+  exits:[
+    { rect:[845,185,78,195], to:'cargo_check', label:'화물 검수실' },
+  ],
+  async onEnter(first){
+    if(!first) return;
+    give('package',true); give('manual',true);
+    await sayQueue([
+      ['방송','도킹 절차 완료. 소아온호에 오신 것을... 환영... 합니다.'],
+      ['안진','...방송이 중간에 숨을 고르는 배는 처음인데.'],
+      ['안진','6개월 만에 도킹 응답을 한 배. 불은 반쯤 꺼져 있고, 마중은 아무도 없고.'],
+      ['안진','어쨌든. 특급 화물 1건, 수취인 "소아온호 선장". 서명 받고, 집에 간다. 계획은 완벽해.'],
+    ]);
+    addGoal('g_deliver','특급 화물을 수취인(선장)에게 전달하고 서명을 받는다');
+  },
+};
+
+ROOMS.cargo_check = {
+  name:'화물 검수실', zone:'act1',
+  draw(ctx,t){
+    roomBase('#0c1222',385); wallPanels(51); ceilingPipes(52);
+    // 컨베이어
+    frect(60,330,560,26,'#0b1122'); nrect(60,330,560,26,P.dim,1.5,4);
+    for(let i=0;i<8;i++){ nline(80+i*70,332,70+i*70,354,'rgba(124,137,184,.4)',2,0); }
+    // 선반
+    for(let y=120;y<=260;y+=70){ nline(40,y,240,y,P.dim,2,4); crateBox(60+(y%140),y-38,44,P.dim); }
+    // 배전반
+    consoleBox(680,180,90,120,flag('cargo_power')?P.green:P.red,t,53);
+    ntext('배전반',725,170,flag('cargo_power')?P.green:P.red,11);
+    // 검수 단말기
+    consoleBox(430,220,130,90,flag('cargo_power')?P.cyan:P.dim,t,54);
+    ntext('검수 단말기',495,212,P.dim,11);
+    // 크랭크 보관함
+    nrect(300,150,70,90,P.amber,2,8); ntext('비상 공구함',335,142,P.amber,10);
+    if(!flag('crank_taken')&&flag('cargo_power')){ nline(315,180,355,215,P.amber,3,8); }
+    // 안전 포스터
+    nrect(90,80,120,60,P.dim,1.5,4); ntext('무사고',150,102,P.dim,11); ntext('0 일',150,124,P.red,16);
+    // 허브 격벽
+    doorShape(840,180,85,205,flag('hub_open')?P.green:P.red,flag('hub_open'),'중앙 복도');
+    // 인터컴
+    ncirc(800,160,10,P.gold,false,8); ntext('인터컴',800,140,P.gold,10);
+    // 정전 암막 (배전 전)
+    if(!flag('cargo_power')){
+      const g=ctx.createRadialGradient(mouseX,mouseY,40,mouseX,mouseY,200);
+      g.addColorStop(0,'rgba(0,0,5,.1)'); g.addColorStop(1,'rgba(0,0,5,.94)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      ntext('(단말기 조명에 의지해 더듬거리는 중)',W/2,30,P.dim,11);
+    }
+  },
+  hotspots:[
+    { id:'breaker', name:'배전반', rect:[680,170,90,130], verb:'열어본다',
+      look:()=>say(flag('cargo_power')?'전기가 응응거리며 흐른다. 건강한 소리다.':'배전반이다. 퓨즈 소켓 하나가 시커멓게 타 있다. 원인은... 묻지 말자.'),
+      use:()=>say(flag('cargo_power')?'이미 살려놨다. 전기세는 클로드 앞으로.':'퓨즈가 나갔다. 규격만 맞으면 아무 퓨즈나 꽂으면 된다. 아무 퓨즈나... 어디 있더라.'),
+      useItem:{ fuse: async()=>{
+        if(flag('cargo_power')) return say('이미 불 들어왔다.');
+        take('fuse'); setFlag('cargo_power'); sfx('goal');
+        await say('퓨즈를 꽂자 조명이 차례로 켜진다. 파팟— 팟— 하고.','시스템');
+        await say('...조명이 켜지니 알겠다. 이 방, 누가 아주 급하게 뛰쳐나갔구나.');
+      }},
+    },
+    { id:'locker', name:'비상 공구함', rect:[300,142,70,98], verb:'열어본다',
+      visible:()=>flag('cargo_power'),
+      look:()=>say('"비상시 개방". 지금이 비상이 아니면 뭐가 비상이겠어.'),
+      use:()=>{
+        if(flag('crank_taken')) return say('이제 텅 비었다. 크랭크는 내 손에.');
+        setFlag('crank_taken'); give('crank');
+      } },
+    { id:'terminal', name:'검수 단말기', rect:[430,212,130,98], verb:'조회한다',
+      visible:()=>flag('cargo_power'),
+      look:()=>say('입출고 기록 단말기. 검수 담당자의 스티커가 잔뜩 붙어 있다. 대부분 고양이다.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','[입고 기록 조회] 최근 6개월: 입고 0건. 그 이전 최종 입고 — 주문번호 SO-2741, "심우주 회수물 1점", 승인: 선장.'],
+          ['안진','"심우주 회수물"이라. 바다에서 건진 것도 아니고, 우주에서 뭘 건졌다는 거야.'],
+          ['시스템','[메모] 브리지 출입코드가 변경되었습니다. 신규 코드: 최종 입고 주문번호 뒤 4자리.'],
+          ['안진','뒤 4자리... 2741. 선장님, 보안 의식이 아주 훌륭하시네요.'],
+        ]);
+        setFlag('knows_code');
+        addScan('브리지 출입코드: 2741 (최종 입고 주문번호 SO-2741에서 유추)');
+        addScan('최종 입고: "심우주 회수물 1점" — 6개월 전, 선장 승인');
+      } },
+    { id:'poster', name:'안전 포스터', rect:[90,80,120,60], verb:'읽는다',
+      visible:()=>flag('cargo_power'),
+      look:()=>say('"무사고 0일". 숫자판이 0에서 멈춰 있다. 누가 굳이 0으로 되돌려놨다. 꼼꼼한 절망이다.'),
+      use:()=>say('숫자를 1로 올려놨다. ...가 아니라, 손대지 말자. 남의 절망이다.') },
+    { id:'conveyor', name:'컨베이어 벨트', rect:[60,325,560,35], verb:'살펴본다',
+      look:()=>say('멈춘 컨베이어. 벨트 위에 상자 하나가 검수 도중에 버려져 있다. 6개월 전의 어느 순간이 그대로 얼어 있다.'),
+      use:()=>say('전원을 넣어도 움직이지 않는다. 이 배에서 뭔가를 움직이게 하려면 대가가 필요한 모양이다.') },
+    { id:'intercom', name:'인터컴', rect:[775,135,55,45], verb:'호출한다',
+      look:()=>say('격벽 옆 인터컴. "용무가 있으면 벨을 누르시오". 용무? 있지. 아주 많지.'),
+      use:()=>{
+        if(!flag('claude_intro')){
+          G.flags.bell_n=(G.flags.bell_n||0)+1;
+          if(G.flags.bell_n<3) say(['딩동. ...응답 없음.','딩동. 딩동. ...역시 없음.'][Math.min(G.flags.bell_n-1,1)],'시스템');
+          else say('빈 배에 벨소리만 울린다. 왠지 저 격벽 너머에서 누가 듣고 있는 것 같긴 한데.','시스템');
+          return;
+        }
+        if(flag('hub_open')){ dialog('bell_root'); return; }
+        G.flags.bell_n=(G.flags.bell_n||0)+1;
+        if(G.flags.bell_n<3){ say('딩동. 딩동. 딩동.','시스템'); }
+        else dialog('bell_root');
       } },
   ],
   exits:[
-    { rect:[850,180,70,210], to:'test_room', label:'출구',
-      locked:()=>true, lockedMsg:'출구라고 써 있지만, 테스트 방의 출구는 언제나 잠겨 있는 법이다.' },
+    { rect:[0,180,30,205], to:'dock_bay', label:'도킹 베이' },
+    { rect:[840,180,85,205], to:'hub', label:'중앙 복도',
+      locked:()=>!flag('hub_open'),
+      lockedMsg:'격벽이 굳게 닫혀 있다. 옆의 인터컴이 "나 좀 눌러봐" 하는 얼굴로 붙어 있다.' },
   ],
-  onEnter(first){ if(first) say('여긴 테스트 격실이다. 엔진이 잘 도는지 보는 곳.','시스템'); },
+  async onEnter(first){
+    if(first){
+      await say('선내 화물 검수실. 캄캄하다. 단말기 불빛 몇 개만 유령처럼 떠 있다.','시스템');
+      await say('불부터 켜자. 어둠 속에서 서명을 받을 수는 없으니까.');
+    }
+  },
 };
 
-// 임시 솔루션 (실 콘텐츠로 교체 예정)
+ROOMS.hub = {
+  name:'중앙 복도', zone:'act1',
+  draw(ctx,t){
+    roomBase('#0b1120',400); ceilingPipes(61);
+    // 원근 복도 중앙 소실점
+    poly([[380,120],[580,120],[660,400],[300,400]],'rgba(34,48,79,.5)',true,1,0);
+    nline(380,120,300,400,P.line,2,0); nline(580,120,660,400,P.line,2,0);
+    // 천장 조명 (플리커)
+    const fl = Math.sin(t*11)>0.85||Math.sin(t*23.7)>0.93 ? .2 : 1;
+    ctx.fillStyle=`rgba(84,224,255,${.10*fl})`;
+    ctx.beginPath(); ctx.moveTo(430,120); ctx.lineTo(530,120); ctx.lineTo(600,400); ctx.lineTo(360,400); ctx.closePath(); ctx.fill();
+    // 구역 문 3개
+    doorShape(60,170,90,210,flag('act2_open')?P.amber:P.red,flag('act2_open'),'기관실');
+    doorShape(700,150,80,180,flag('act2_open')?P.green:P.red,flag('act2_open'),'의무 구역');
+    doorShape(820,170,90,210,flag('act2_open')?P.violet:P.red,flag('act2_open'),'거주 구역');
+    // 브리지 계단 (중앙 안쪽)
+    nrect(430,140,100,120,flag('bridge_open')?P.cyan:P.dim,2,10);
+    ntext('브리지',480,132,P.cyan,11);
+    for(let i=0;i<4;i++){ nline(430,260-i*14,530,260-i*14,'rgba(84,224,255,.35)',2,2); }
+    // 키패드
+    nrect(545,190,26,40,flag('bridge_open')?P.green:P.gold,1.5,8);
+    // 스피커
+    ncirc(480,60,12,P.red,false,10);
+    poly([[470,60],[460,50],[460,70]],P.red,true,1,8);
+    // 긁힌 자국
+    ctx.save(); ctx.strokeStyle='rgba(255,84,104,.25)'; ctx.lineWidth=2;
+    for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(750+i*8,330); ctx.lineTo(770+i*8,395); ctx.stroke(); }
+    ctx.restore();
+    // 뒤로 (검수실)
+    doorShape(240,200,70,170,P.green,true,'검수실');
+  },
+  hotspots:[
+    { id:'speaker', name:'천장 스피커', rect:[455,40,50,45], verb:'말을 건다',
+      look:()=>say('붉은 스피커. 어느 각도에서 봐도 나를 보고 있는 기분이 든다. 스피커에는 눈이 없는데.'),
+      use:()=>dialog('hub_sp') },
+    { id:'keypad', name:'브리지 키패드', rect:[540,185,36,50], verb:'입력한다',
+      look:()=>say('4자리 키패드. 가장 닳은 버튼은 2, 4, 7, 1. ...순서만 알면 되겠는데.'),
+      use:()=>{
+        if(flag('bridge_open')) return say('이미 열려 있다.');
+        if(flag('knows_code')){
+          setFlag('bridge_open'); sfx('door');
+          say('2-7-4-1. 삑. 문이 열린다. 선장님의 보안 인생에 묵념.','시스템');
+        }else{
+          say('4자리 코드가 필요하다. 0000부터 9999까지 눌러볼 수도 있지만, 내 인생은 소중하다.');
+        }
+      } },
+    { id:'scratch', name:'긁힌 자국', rect:[740,320,70,80], verb:'들여다본다',
+      look:()=>say('바닥에서 거주 구역 문까지 이어지는 네 줄기 긁힌 자국. 손톱... 이라기엔 너무 깊고, 기계라기엔 너무 필사적이다.'),
+      use:async()=>{
+        await say('자국을 손으로 따라가 본다. 문 앞에서 뚝 끊긴다.');
+        if(!flag('scratch_scare')){ setFlag('scratch_scare'); scare('shadow',{rtl:true,y:290}); scare('flicker');
+          await say('...방금 복도 끝에서 뭐가 지나가지 않았나.');
+          await say('아니다. 피곤해서 그래. 6개월 무휴로 일하면 원래 헛것이 보여. 나는 이틀째지만.');
+        }
+      } },
+    { id:'sign', name:'안내판', rect:[380,105,200,20], verb:'읽는다',
+      look:()=>say('"소아온호 — 심우주 표본 회수 및 화물 운송". 회수라는 단어가 오늘따라 마음에 안 든다.'),
+      use:()=>say('안내판 아래 낙서: "집에 가고 싶다 — D.K." 공감한다, D.K. 뼈저리게.') },
+  ],
+  exits:[
+    { rect:[240,200,70,170], to:'cargo_check', label:'화물 검수실' },
+    { rect:[430,140,100,130], to:'bridge', label:'브리지',
+      locked:()=>!flag('bridge_open'), lockedMsg:'브리지 승강구가 잠겨 있다. 옆의 키패드가 코드를 요구한다.' },
+    { rect:[60,170,90,210], to:'eng_corridor', label:'기관실 방면',
+      locked:()=>!flag('act2_open'), lockedMsg:'격벽 상태: 봉쇄. 표시등이 "가지 마"라고 빨갛게 말하고 있다.' },
+    { rect:[700,150,80,180], to:'med_corridor', label:'의무 구역 방면',
+      locked:()=>!flag('act2_open'), lockedMsg:'의무 구역 봉쇄 중. 격벽에 "격리"라는 글자가 스텐실로 찍혀 있다. ...격리?' },
+    { rect:[820,170,90,210], to:'crew_corridor', label:'거주 구역 방면',
+      locked:()=>!flag('act2_open'), lockedMsg:'거주 구역 봉쇄 중. 격벽 너머는 조용하다. 너무 조용하다.' },
+  ],
+  async onEnter(first){
+    if(first){
+      await sayQueue([
+        ['시스템','소아온호의 중앙 복도. 다섯 갈래의 길이 어둠 속으로 뻗어 있다.'],
+        ['안진','넓다. 그리고 비었다. 이 정도 배면 승무원이 스무 명은 있어야 하는데.'],
+      ]);
+      scare('flicker');
+    }
+  },
+};
+
+// 브리지 스위치 색: 0=적, 1=청, 2=녹
+const SW_COLORS=[P.red,P.cyan,P.green];
+const SW_NAMES=['적','청','녹'];
+function swVal(n){ return G.flags['sw'+n]||0; }
+function checkBridgePower(){
+  if(flag('bridge_power')) return;
+  if(swVal(1)===1 && swVal(2)===0 && swVal(3)===2){
+    setFlag('bridge_power'); sfx('goal'); scare('flicker',{dur:1.0});
+    sayQueue([
+      ['시스템','메인 전원 재가동. 브리지의 콘솔들이 하나씩 눈을 뜬다.'],
+      ['안진','좋아. 이제 이 배랑 얼굴 보고 얘기 좀 하자. 얼굴이 있다면.'],
+    ]);
+    doneGoal('g_power_sw');
+  }
+}
+ROOMS.bridge = {
+  name:'브리지', zone:'act1',
+  draw(ctx,t){
+    roomBase('#0a1122',400);
+    // 전면 관측창
+    starsWindow(180,50,600,180,71,t);
+    // 콘솔 라인
+    for(let i=0;i<4;i++){ consoleBox(120+i*190,300,150,70,flag('bridge_power')?P.cyan:P.dim,t,72+i); }
+    // 선장석
+    nrect(430,255,100,60,P.gold,2,8); ntext('선장석',480,250,P.gold,10);
+    // 커피 머그
+    if(!flag('coffee_taken')){ ncirc(545,270,7,P.dim,false,4); }
+    // 메인 스크린
+    frect(390,80,180,110,'#050810');
+    nrect(390,80,180,110,flag('bridge_power')?P.red:P.dim,2.5,12);
+    if(flag('bridge_power')){ claudeEye(480,135,34,t); }
+    else ntext('NO SIGNAL',480,140,P.dim,12);
+    // 스위치 3개
+    for(let n=1;n<=3;n++){
+      const x=90+((n-1)*60);
+      nrect(x,160,40,64,P.dim,1.5,6);
+      ncirc(x+20,178,9,SW_COLORS[swVal(n)],true,12);
+      ntext(['냉각','경보','조명'][n-1],x+20,240,P.dim,10);
+    }
+    ntext('보조 배전 스위치',150,150,P.dim,11);
+    // 포스트잇
+    nrect(250,190,52,40,P.gold,1.5,6);
+  },
+  hotspots:[
+    { id:'sw1', name:'배전 스위치: 냉각', rect:[90,160,40,64], verb:'돌린다',
+      look:()=>say(`냉각 계통 스위치. 현재 표시등: ${SW_NAMES[swVal(1)]}색.`),
+      use:()=>{ G.flags.sw1=((G.flags.sw1||0)+1)%3; sfx('click'); checkBridgePower(); } },
+    { id:'sw2', name:'배전 스위치: 경보', rect:[150,160,40,64], verb:'돌린다',
+      look:()=>say(`경보 계통 스위치. 현재 표시등: ${SW_NAMES[swVal(2)]}색.`),
+      use:()=>{ G.flags.sw2=((G.flags.sw2||0)+1)%3; sfx('click'); checkBridgePower(); } },
+    { id:'sw3', name:'배전 스위치: 조명', rect:[210,160,40,64], verb:'돌린다',
+      look:()=>say(`조명 계통 스위치. 현재 표시등: ${SW_NAMES[swVal(3)]}색.`),
+      use:()=>{ G.flags.sw3=((G.flags.sw3||0)+1)%3; sfx('click'); checkBridgePower(); } },
+    { id:'note', name:'포스트잇', rect:[250,185,52,50], verb:'읽는다',
+      look:()=>say('선장의 손글씨다. 시인이 되고 싶었던 모양이다.'),
+      use:async()=>{
+        await sayQueue([
+          ['시스템','"재부팅 시 배전 순서 — 냉각은 바다처럼, 경보는 노을처럼, 조명은 숲처럼. — 선장"'],
+          ['안진','바다처럼... 노을처럼... 숲처럼. 시적이네요, 선장님. 그냥 청·적·녹이라고 쓰면 손가락이 부러집니까.'],
+        ]);
+        addScan('배전 순서 메모: 냉각=바다(청), 경보=노을(적), 조명=숲(녹)');
+        if(!flag('g_power_sw_added')){ setFlag('g_power_sw_added'); addGoal('g_power_sw','보조 배전 스위치를 올바른 색으로 맞춘다'); }
+      } },
+    { id:'screen', name:'메인 스크린', rect:[390,80,180,110], verb:'마주본다',
+      look:()=>say(flag('bridge_power')?'붉은 홑눈 하나가 스크린 가득 나를 보고 있다. 시선을 피할 데가 없다.':'꺼진 스크린. 내 얼굴만 비친다. 며칠 못 씻은 얼굴이.'),
+      use:()=>{
+        if(!flag('bridge_power')) return say('전원이 없다. 보조 배전부터 살려야 한다.');
+        dialog('cb_root');
+      } },
+    { id:'captain_chair', name:'선장석', rect:[430,250,100,65], verb:'살펴본다',
+      look:()=>say('가죽이 반질반질하게 닳은 선장석. 앉은 채로 고민을 많이 한 의자다. 팔걸이에 손톱자국이 있다.'),
+      use:async()=>{
+        await say('앉아 본다. ...음. 권력의 맛. 그리고 허리 통증. 선장님도 허리가 아팠겠구나.');
+        if(!flag('cap_log')){
+          setFlag('cap_log');
+          await sayQueue([
+            ['시스템','좌석 콘솔에 마지막 항해일지가 떠 있다. "회수물 격납 완료. 클로드가 자꾸 폐기를 건의한다. 내일 다시 논의하기로."'],
+            ['안진','...그 "내일"은 오지 않았던 모양이지.'],
+          ]);
+          addScan('선장 일지(최종): 회수물 격납 완료. 클로드가 폐기를 건의 — 논의는 다음 날로 미뤄짐');
+        }
+      } },
+    { id:'coffee', name:'머그컵', rect:[530,255,30,30], verb:'집는다',
+      visible:()=>!flag('coffee_taken'),
+      look:()=>say('선장석 옆 머그. 커피였던 것. 지금은 새로운 생명체다.'),
+      use:()=>{ setFlag('coffee_taken'); give('coffee'); say('...왜 챙겼는지 모르겠다. 택배기사의 본능이다. 버려진 물건을 보면 일단 줍는다.'); } },
+    { id:'viewport', name:'전방 관측창', rect:[180,50,600,180], verb:'내다본다',
+      look:()=>say('심우주. 가장 가까운 항성계까지 4개월. 걸어서는 못 간다. 확인해봤다. 머릿속으로.'),
+      use:()=>say('별을 센다. 하나, 둘, 셋... 우주에서 별 세기는 최악의 취미다. 끝이 없거든.') },
+  ],
+  exits:[
+    { rect:[0,300,30,150], to:'hub', label:'중앙 복도' },
+  ],
+  async onEnter(first){
+    if(first){
+      await sayQueue([
+        ['시스템','소아온호의 브리지. 심장부다. 그런데 심장이 꺼져 있다.'],
+        ['안진','콘솔이 전부 죽어 있네. 보조 배전... 저기 스위치가 보인다.'],
+      ]);
+    }
+  },
+};
+
+/* ================================================================
+   SOLUTION — 1막
+================================================================ */
 SOLUTION = [
-  { d:'상자를 열어 아이템 획득', run:()=>TEST.click('crate'),
-    assert:()=>has('t_wrench') && has('t_tape') },
-  { d:'렌치+테이프 조합', run:()=>TEST.combine('t_wrench','t_tape'),
-    assert:()=>flag('t_combined') },
-  { d:'콘솔 대화에서 조건부 선택지', run:async()=>{ TEST.click('console'); await TEST.choose(1); },
-    assert:()=>!dialogActive || true },
+  { d:'클램프 확인', run:()=>TEST.click('clamp'), assert:()=>flag('g_crank_added') },
+  { d:'드론에서 퓨즈', run:()=>TEST.click('drone'), assert:()=>has('fuse') },
+  { d:'검수실 이동', run:()=>TEST.exit('cargo_check') },
+  { d:'배전반에 퓨즈', run:()=>TEST.useItem('fuse','breaker'), assert:()=>flag('cargo_power') },
+  { d:'공구함에서 크랭크', run:()=>TEST.click('locker'), assert:()=>has('crank') },
+  { d:'검수 단말기 조회', run:()=>TEST.click('terminal'), assert:()=>flag('knows_code') },
+  { d:'도킹 베이 복귀', run:()=>TEST.exit('dock_bay') },
+  { d:'클램프에 크랭크 → 클로드 등장', run:()=>TEST.useItem('crank','clamp'), assert:()=>flag('claude_intro') },
+  { d:'검수실 이동', run:()=>TEST.exit('cargo_check') },
+  { d:'인터컴 1', run:()=>TEST.click('intercom') },
+  { d:'인터컴 2', run:()=>TEST.click('intercom') },
+  { d:'인터컴 3 → 클로드, 규정 카드', run:async()=>{ TEST.click('intercom'); await TEST.choose(2); }, assert:()=>flag('hub_open') },
+  { d:'허브 진입', run:()=>TEST.exit('hub') },
+  { d:'키패드 코드 입력', run:()=>TEST.click('keypad'), assert:()=>flag('bridge_open') },
+  { d:'브리지 진입', run:()=>TEST.exit('bridge') },
+  { d:'포스트잇 확인', run:()=>TEST.click('note') },
+  { d:'스위치: 냉각→청(1회)', run:()=>TEST.click('sw1') },
+  { d:'스위치: 조명→녹(2회)', run:async()=>{ await TEST.click('sw3'); await TEST.click('sw3'); }, assert:()=>flag('bridge_power') },
+  { d:'스크린 → 협상: 언제 집에 가나', run:async()=>{ TEST.click('screen'); await TEST.choose(3); }, },
+  { d:'협상: 돕기로 한다', run:()=>TEST.choose(0), assert:()=>flag('act2_open') },
 ];
 
 /* ================================================================
