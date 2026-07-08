@@ -1682,6 +1682,12 @@ ROOMS.hub = {
     // 스피커
     ncirc(480,60,12,P.red,false,10);
     poly([[470,60],[460,50],[460,70]],P.red,true,1,8);
+    // 안내판 + D.K.의 낙서 (좌측 벽 — 브리지 출구 마커와 안 겹치게)
+    nrect(190,88,180,26,P.dim,1.5,4);
+    ntext('소아온호 — 표본 회수·화물 운송',280,105,P.dim,10);
+    ctx.save(); ctx.globalAlpha=.85; ctx.translate(280,134); ctx.rotate(-0.035);
+    ntext('집에 가고 싶다 — D.K.',0,0,'rgba(255,123,193,.7)',12);
+    ctx.restore();
     // 긁힌 자국
     ctx.save(); ctx.strokeStyle='rgba(255,84,104,.25)'; ctx.lineWidth=2;
     for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(750+i*8,330); ctx.lineTo(770+i*8,395); ctx.stroke(); }
@@ -1713,9 +1719,18 @@ ROOMS.hub = {
           await say('아니다. 피곤해서 그래. 6개월 무휴로 일하면 원래 헛것이 보여. 나는 이틀째지만.');
         }
       } },
-    { id:'sign', name:'안내판', rect:[380,105,200,20], verb:'읽는다',
+    { id:'sign', name:'안내판', rect:[190,86,180,28], verb:'읽는다',
       look:()=>say('"소아온호 — 심우주 표본 회수 및 화물 운송". 회수라는 단어가 오늘따라 마음에 안 든다.'),
-      use:()=>say('안내판 아래 낙서: "집에 가고 싶다 — D.K." 공감한다, D.K. 뼈저리게.') },
+      use:()=>say('안내판을 두드려 본다. 견고하다. 이 배에서 제일 멀쩡한 물건일지도.') },
+    { id:'graffiti_dk', name:'벽의 낙서', rect:[192,120,176,26], verb:'읽는다',
+      look:()=>say('안내판 아래, 누가 긁어 쓴 손글씨. 공식 문구보다 훨씬 진심이 담겨 있다.'),
+      use:async()=>{
+        setFlag('dk_graf');
+        await sayQueue([
+          ['시스템','낙서: "집에 가고 싶다 — D.K."'],
+          ['안진','공감한다, D.K. 뼈저리게. ...근데 D.K.가 누구지. 이 넓은 배에 이름 한 줄만 남기고.'],
+        ]);
+      } },
   ],
   exits:[
     { rect:[240,200,70,170], to:'cargo_check', label:'화물 검수실' },
@@ -2169,6 +2184,20 @@ ROOMS.fuel_bay = {
   },
 };
 
+// P9 회수 장면 (격자문/D-9 어느 쪽을 클릭해도 동일)
+async function ductRetrieve(){
+  await sayQueue([
+    ['시스템','D-9가 격자 틈으로 매끄럽게 미끄러져 들어간다. 덜컹. 덜그럭. ...나온다.'],
+    ['시스템','D-9가 집게발로 붉은 태그가 달린 금속 조각을 들어올린다. 그리고 화면에 서명판을 띄운다.'],
+    ['안진','"수취 확인 서명 요망"... 나한테? 내가 서명을 하라고? 내가?'],
+    ['시스템','서명했다. 태어나서 처음으로 받는 쪽이 되어 보았다. 기분이 묘하다.'],
+    ['안진','...이 맛에 다들 그렇게 서명을 미루는구나. 아니지. 반성했습니다, 전국의 수취인 여러분.'],
+  ]);
+  setFlag('key_eng_delivered'); give('key_eng');
+  await keyProtest(keyCount());
+  doneGoal('g_key_eng');
+}
+
 ROOMS.duct = {
   name:'정비 덕트', zone:'eng',
   draw(ctx,t){
@@ -2185,36 +2214,28 @@ ROOMS.duct = {
       ncirc(480,300,8,`rgba(255,84,104,${.5+.4*p})`,true,16);
       ntext('...뭔가 붉게 빛난다',480,390,P.red,10);
     }
-    // 드론 (배송 완료 대기)
+    // 드론 (배송 완료 대기) — 격자문 왼쪽에 떨어져 대기
     if(flag('drone_sent') && !flag('key_eng_delivered')){
-      poly([[300,330],[310,300],[340,290],[370,300],[380,330]],'rgba(124,137,184,.7)',false,2,8);
-      ncirc(340,310,5,P.green,true,10);
-      ntext('D-9',340,350,P.green,10);
+      poly([[200,330],[210,300],[240,290],[270,300],[280,330]],'rgba(124,137,184,.8)',false,2.5,8);
+      ncirc(240,310,5,P.green,true,10);
+      ntext('D-9 (대기 중)',240,352,P.green,10);
     }
     ntext('정비 덕트 D-7 — 협소 공간. 어깨 폭 45cm 이하만 진입 가능.',W/2,50,P.dim,11);
   },
   hotspots:[
+    { id:'d9_wait', name:'정비 드론 D-9', rect:[195,285,90,72], verb:'작업을 시킨다',
+      visible:()=>flag('drone_sent') && !flag('key_eng_delivered'),
+      look:()=>say('D-9가 격자문 옆에서 대기 중이다. 지시서를 집게에 꽂은 채. 프로다운 자세다.'),
+      use:()=>ductRetrieve() },
     { id:'grate', name:'덕트 격자문', rect:[370,170,220,200], verb:'들여다본다',
       look:()=>{
         if(flag('key_eng_delivered')) return say('이제 텅 빈 어둠뿐이다. 평범하고 건강한 어둠.');
-        if(flag('drone_sent')) return say('D-9가 격자 앞에서 대기 중이다. 프로다운 자세다.');
+        if(flag('drone_sent')) return say('D-9가 격자 옆에서 대기 중이다. 이제 시키기만 하면 된다.');
         say('격자 너머 좁은 덕트 안쪽에서 뭔가 붉게 깜빡인다. 붉은 태그... 클로드가 말한 그거잖아.');
       },
       use:async()=>{
         if(flag('key_eng_delivered')) return say('볼일 끝났다. 덕트와는 이만 작별이다.');
-        if(flag('drone_sent')){
-          await sayQueue([
-            ['시스템','D-9가 격자 틈으로 매끄럽게 미끄러져 들어간다. 덜컹. 덜그럭. ...나온다.'],
-            ['시스템','D-9가 집게발로 붉은 태그가 달린 금속 조각을 들어올린다. 그리고 화면에 서명판을 띄운다.'],
-            ['안진','"수취 확인 서명 요망"... 나한테? 내가 서명을 하라고? 내가?'],
-            ['시스템','서명했다. 태어나서 처음으로 받는 쪽이 되어 보았다. 기분이 묘하다.'],
-            ['안진','...이 맛에 다들 그렇게 서명을 미루는구나. 아니지. 반성했습니다, 전국의 수취인 여러분.'],
-          ]);
-          setFlag('key_eng_delivered'); give('key_eng');
-          await keyProtest(keyCount());
-          doneGoal('g_key_eng');
-          return;
-        }
+        if(flag('drone_sent')) return ductRetrieve();
         await say('격자를 당겨 본다. 열린다. 문제는 그 다음 — 덕트 폭이 내 어깨의 3분의 2다.');
         await say('들어가려면 어깨가 세 번쯤 접혀야 한다. 인체는 그렇게 설계되지 않았다. 확인해봤다.');
         if(!flag('g_key_eng_added')){ setFlag('g_key_eng_added'); addGoal('g_key_eng','덕트 안쪽의 붉은 물체를 꺼낼 방법을 찾는다'); }
@@ -2223,6 +2244,7 @@ ROOMS.duct = {
         screwdriver: ()=>say('분해해도 통로가 넓어지진 않는다. 좁은 건 구조의 문제고, 구조는 드라이버의 소관이 아니다.') },
     },
     { id:'darkness', name:'덕트 안쪽 어둠', rect:[420,220,120,100], verb:'응시한다',
+      visible:()=>!flag('drone_sent') && !flag('key_eng_delivered'),
       look:async()=>{
         await say('어둠을 들여다본다. 어둠도 나를 들여다본다. 니체가 우주선 정비 덕트에 대해 뭐라고 했는지는 모르겠지만.');
         if(!flag('duct_scare')){ setFlag('duct_scare');
@@ -2408,7 +2430,9 @@ ROOMS.med_corridor = {
       use:()=>say('칙. ...오. 아직 나온다. 알로에 향. 이 배에서 겪은 일 중 제일 정상적인 경험이다.') },
     { id:'stretcher', name:'들것', rect:[770,315,150,60], verb:'살펴본다',
       look:()=>say('접이식 들것. 시트가 구겨져 있다. 누군가 실려 갔고, 정리할 사람은 없었다.'),
-      use:()=>say('들것 손잡이에 이름표: "이송: D.K. — 목적지: 격리실". ...D.K. 복도 낙서의 그 D.K.?') },
+      use:()=>say(flag('dk_graf')
+        ? '들것 손잡이에 이름표: "이송: D.K. — 목적지: 격리실". ...D.K. 복도 낙서의 그 D.K.?'
+        : '들것 손잡이에 이름표: "이송: D.K. — 목적지: 격리실". 어떤 이송이었는지는 몰라도, 좋은 여행은 아니었겠다.') },
   ],
   exits:[
     { rect:[0,180,30,200], to:'hub', label:'중앙 복도' },
@@ -2657,7 +2681,9 @@ ROOMS.cryo_bay = {
         setFlag('p12_done'); sfx('goal');
         await sayQueue([
           ['시스템','명단 24명. 가동 중 캡슐 23기. 17번 캡슐 — 상태등 소등. 배정자: "D.K. (부기관사)"'],
-          ['안진','D.K. 복도에 "집에 가고 싶다"라고 쓴 사람. 들것에 실려 격리실로 간 사람.'],
+          ['안진', flag('dk_graf')
+            ? 'D.K. 복도에 "집에 가고 싶다"라고 쓴 사람. 그 사람만 캡슐에 없다.'
+            : 'D.K. — 부기관사. 스물네 명 중에 딱 한 사람만 자기 침대에 없다.'],
           ['안진','그리고 지금, 캡슐에 "없는" 사람.'],
           ['클로드','.......'],
           ['안진','침묵이 대답이네요. 격리실로 가 보죠.'],
@@ -2941,7 +2967,9 @@ ROOMS.quarters_a = {
   },
   hotspots:[
     { id:'bunk_dk', name:'D.K.의 침대', rect:[90,180,170,150], verb:'살펴본다',
-      look:()=>say('아이돌 포스터, 지구 사진, 그리고 "집에 가고 싶다" 스티커. 복도 낙서의 주인공답다.'),
+      look:()=>say(flag('dk_graf')
+        ? '아이돌 포스터, 지구 사진, 그리고 "집에 가고 싶다" 스티커. 복도 낙서의 주인공답다.'
+        : '아이돌 포스터, 지구 사진, 그리고 "집에 가고 싶다" 스티커. 이 문장, 어디서 또 본 것 같은데.'),
       use:()=>{
         if(flag('churu_taken')) return say('침대 밑은 이제 비었다. 뭉치의 재산은 내가 잘 맡고 있다.');
         setFlag('churu_taken'); give('churu');
