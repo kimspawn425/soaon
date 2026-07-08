@@ -628,17 +628,17 @@ function canvasPos(ev){
   return [ (ev.clientX-rect.left)*W/rect.width, (ev.clientY-rect.top)*H/rect.height ];
 }
 function hitTest(x,y){
-  // 핫스팟 우선, 그 다음 출구
-  const hs=activeHotspots();
-  for(let i=hs.length-1;i>=0;i--){
-    const [hx,hy,hw,hh]=hs[i].rect;
-    if(x>=hx&&x<=hx+hw&&y>=hy&&y<=hy+hh) return {type:'hot', h:hs[i]};
+  // 겹칠 경우 "가장 작은(구체적인)" 대상 우선 — 큰 배경(창/벽)이 앞의 작은 오브젝트 클릭을 삼키지 않게.
+  const inside=r=>x>=r[0]&&x<=r[0]+r[2]&&y>=r[1]&&y<=r[1]+r[3];
+  let best=null, bestArea=Infinity;
+  for(const h of activeHotspots()){
+    if(inside(h.rect)){ const a=h.rect[2]*h.rect[3]; if(a<bestArea){ bestArea=a; best={type:'hot',h}; } }
   }
+  if(best) return best;   // 핫스팟이 출구보다 우선
   for(const e of activeExits()){
-    const [hx,hy,hw,hh]=e.rect;
-    if(x>=hx&&x<=hx+hw&&y>=hy&&y<=hy+hh) return {type:'exit', e};
+    if(inside(e.rect)){ const a=e.rect[2]*e.rect[3]; if(a<bestArea){ bestArea=a; best={type:'exit',e}; } }
   }
-  return null;
+  return best;
 }
 function showLabel(html,x,y){
   hlabel.innerHTML=html; hlabel.style.display='block';
@@ -1758,29 +1758,29 @@ ROOMS.bridge = {
   name:'브리지', zone:'act1',
   draw(ctx,t){
     roomBase('#0a1122',400);
-    // 전면 관측창
-    starsWindow(180,50,600,180,71,t);
-    // 콘솔 라인
-    for(let i=0;i<4;i++){ consoleBox(120+i*190,300,150,70,flag('bridge_power')?P.cyan:P.dim,t,72+i); }
-    // 선장석
-    nrect(430,255,100,60,P.gold,2,8); ntext('선장석',480,250,P.gold,10);
-    // 커피 머그
-    if(!flag('coffee_taken')){ ncirc(545,270,7,P.dim,false,4); }
-    // 메인 스크린
-    frect(390,80,180,110,'#050810');
-    nrect(390,80,180,110,flag('bridge_power')?P.red:P.dim,2.5,12);
-    if(flag('bridge_power')){ claudeEye(480,135,34,t); }
-    else ntext('NO SIGNAL',480,140,P.dim,12);
-    // 스위치 3개
+    // 전면 관측창 (상단 중앙 — 다른 오브젝트와 겹치지 않음)
+    starsWindow(280,42,400,138,71,t);
+    // 좌측 보조 배전 패널 (창 아래 왼쪽)
+    ntext('보조 배전 스위치',148,196,P.dim,11);
     for(let n=1;n<=3;n++){
-      const x=90+((n-1)*60);
-      nrect(x,160,40,64,P.dim,1.5,6);
-      ncirc(x+20,178,9,SW_COLORS[swVal(n)],true,12);
-      ntext(['냉각','경보','조명'][n-1],x+20,240,P.dim,10);
+      const x=70+(n-1)*56;
+      nrect(x,206,44,60,P.dim,1.5,6);
+      ncirc(x+22,226,9,SW_COLORS[swVal(n)],true,12);
+      ntext(['냉각','경보','조명'][n-1],x+22,281,P.dim,10);
     }
-    ntext('보조 배전 스위치',150,150,P.dim,11);
-    // 포스트잇
-    nrect(250,190,52,40,P.gold,1.5,6);
+    // 포스트잇 (스위치 오른쪽)
+    nrect(250,208,56,44,P.gold,1.5,6);
+    // 메인 스크린 (우측 벽)
+    frect(710,86,190,124,'#050810');
+    nrect(710,86,190,124,flag('bridge_power')?P.red:P.dim,2.5,12);
+    if(flag('bridge_power')){ claudeEye(805,148,34,t); }
+    else ntext('NO SIGNAL',805,150,P.dim,12);
+    // 선장석 (중앙 전면)
+    nrect(430,250,110,64,P.gold,2,8); ntext('선장석',485,244,P.gold,10);
+    if(!flag('coffee_taken')){ ncirc(562,274,7,P.dim,false,4); }
+    // 콘솔 (바닥열, 선장석 좌우)
+    consoleBox(250,330,150,62,flag('bridge_power')?P.cyan:P.dim,t,72);
+    consoleBox(590,330,150,62,flag('bridge_power')?P.cyan:P.dim,t,73);
     // AI 코어 접근 해치 (2막 개방 후 노출)
     if(flag('act2_open')){
       const hc = flag('core_open')? P.red : P.dim;
@@ -1808,16 +1808,16 @@ ROOMS.bridge = {
         }
         dialog('gate_root');
       } },
-    { id:'sw1', name:'배전 스위치: 냉각', rect:[90,160,40,64], verb:'돌린다',
+    { id:'sw1', name:'배전 스위치: 냉각', rect:[70,206,44,60], verb:'돌린다',
       look:()=>say(`냉각 계통 스위치. 현재 표시등: ${SW_NAMES[swVal(1)]}색.`),
       use:()=>{ G.flags.sw1=((G.flags.sw1||0)+1)%3; sfx('click'); checkBridgePower(); } },
-    { id:'sw2', name:'배전 스위치: 경보', rect:[150,160,40,64], verb:'돌린다',
+    { id:'sw2', name:'배전 스위치: 경보', rect:[126,206,44,60], verb:'돌린다',
       look:()=>say(`경보 계통 스위치. 현재 표시등: ${SW_NAMES[swVal(2)]}색.`),
       use:()=>{ G.flags.sw2=((G.flags.sw2||0)+1)%3; sfx('click'); checkBridgePower(); } },
-    { id:'sw3', name:'배전 스위치: 조명', rect:[210,160,40,64], verb:'돌린다',
+    { id:'sw3', name:'배전 스위치: 조명', rect:[182,206,44,60], verb:'돌린다',
       look:()=>say(`조명 계통 스위치. 현재 표시등: ${SW_NAMES[swVal(3)]}색.`),
       use:()=>{ G.flags.sw3=((G.flags.sw3||0)+1)%3; sfx('click'); checkBridgePower(); } },
-    { id:'note', name:'포스트잇', rect:[250,185,52,50], verb:'읽는다',
+    { id:'note', name:'포스트잇', rect:[250,208,56,44], verb:'읽는다',
       look:()=>say('선장의 손글씨다. 시인이 되고 싶었던 모양이다.'),
       use:async()=>{
         await sayQueue([
@@ -1827,13 +1827,13 @@ ROOMS.bridge = {
         addScan('배전 순서 메모: 냉각=바다(청), 경보=노을(적), 조명=숲(녹)');
         if(!flag('g_power_sw_added')){ setFlag('g_power_sw_added'); addGoal('g_power_sw','보조 배전 스위치를 올바른 색으로 맞춘다'); }
       } },
-    { id:'screen', name:'메인 스크린', rect:[390,80,180,110], verb:'마주본다',
+    { id:'screen', name:'메인 스크린', rect:[710,86,190,124], verb:'마주본다',
       look:()=>say(flag('bridge_power')?'붉은 홑눈 하나가 스크린 가득 나를 보고 있다. 시선을 피할 데가 없다.':'꺼진 스크린. 내 얼굴만 비친다. 며칠 못 씻은 얼굴이.'),
       use:()=>{
         if(!flag('bridge_power')) return say('전원이 없다. 보조 배전부터 살려야 한다.');
         dialog('cb_root');
       } },
-    { id:'captain_chair', name:'선장석', rect:[430,250,100,65], verb:'살펴본다',
+    { id:'captain_chair', name:'선장석', rect:[430,250,110,64], verb:'살펴본다',
       look:()=>say('가죽이 반질반질하게 닳은 선장석. 앉은 채로 고민을 많이 한 의자다. 팔걸이에 손톱자국이 있다.'),
       use:async()=>{
         await say('앉아 본다. ...음. 권력의 맛. 그리고 허리 통증. 선장님도 허리가 아팠겠구나.');
@@ -1846,11 +1846,11 @@ ROOMS.bridge = {
           addScan('선장 일지(최종): 회수물 격납 완료. 클로드가 폐기를 건의 — 논의는 다음 날로 미뤄짐');
         }
       } },
-    { id:'coffee', name:'머그컵', rect:[530,255,30,30], verb:'집는다',
+    { id:'coffee', name:'머그컵', rect:[548,258,32,32], verb:'집는다',
       visible:()=>!flag('coffee_taken'),
       look:()=>say('선장석 옆 머그. 커피였던 것. 지금은 새로운 생명체다.'),
       use:()=>{ setFlag('coffee_taken'); give('coffee'); say('...왜 챙겼는지 모르겠다. 택배기사의 본능이다. 버려진 물건을 보면 일단 줍는다.'); } },
-    { id:'viewport', name:'전방 관측창', rect:[180,50,600,180], verb:'내다본다',
+    { id:'viewport', name:'전방 관측창', rect:[280,42,400,138], verb:'내다본다',
       look:()=>say('심우주. 가장 가까운 항성계까지 4개월. 걸어서는 못 간다. 확인해봤다. 머릿속으로.'),
       use:()=>say('별을 센다. 하나, 둘, 셋... 우주에서 별 세기는 최악의 취미다. 끝이 없거든.') },
   ],
