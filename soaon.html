@@ -1104,6 +1104,9 @@ let SOLUTION = []; // [{d:'설명', run:async()=>{}, assert:()=>bool}]
 async function runSolution(upTo=Infinity){
   TESTFAST=true;
   try{
+    // 대화/자막 상태 초기화 (이전 실행이 중단된 경우 대비)
+    dialogActive=false; choiceResolver=null; sayBusy=false;
+    choicesEl.style.display='none'; choicesEl.innerHTML='';
     resetState(); gameStarted=true;
     $('title').style.display='none';
     goto(START_ROOM);
@@ -1293,7 +1296,7 @@ DIALOGS.cb_deal_ok = {
 // 힌트 시스템 — 진행도 기반 다음 단서 (클로드가 마지못해 제공)
 function nextHint(){
   if(!flag('claude_intro')) return '클램프 제어반에 수동 해제 크랭크 삽입구가 있지 않았습니까. 크랭크는 보통 비상 공구함에 있죠. 공구함은 보통... 불이 켜져야 보이고요.';
-  if(!flag('hub_open')) return '인터컴이란 상대가 받을 때까지 누르라고 있는 물건입니다. 그리고 당신, 규정집 하나는 기가 막히게 외우고 다니시더군요.';
+  if(!flag('hub_open')) return '격벽 옆 인터컴으로 저를 호출하십시오. 그리고 당신, 규정집 하나는 기가 막히게 외우고 다니시더군요. 조항을 인용해 보시죠.';
   if(!flag('bridge_open')) return '검수 단말기는 이 배의 모든 입출고를 기억합니다. 선장님의 "보안 의식"까지도요.';
   if(!flag('bridge_power')) return '선장님은 메모를 시적으로 쓰는 분이었습니다. 바다, 노을, 숲. ...색맹 검사가 아닙니다.';
   if(!flag('act2_open')) return '메인 스크린 앞에서, 집에 가는 방법을 물어보십시오. 솔직한 대답을 준비해 뒀습니다.';
@@ -1571,15 +1574,12 @@ ROOMS.cargo_check = {
       look:()=>say('격벽 옆 인터컴. "용무가 있으면 벨을 누르시오". 용무? 있지. 아주 많지.'),
       use:()=>{
         if(!flag('claude_intro')){
-          G.flags.bell_n=(G.flags.bell_n||0)+1;
-          if(G.flags.bell_n<3) say(['딩동. ...응답 없음.','딩동. 딩동. ...역시 없음.'][Math.min(G.flags.bell_n-1,1)],'시스템');
-          else say('빈 배에 벨소리만 울린다. 왠지 저 격벽 너머에서 누가 듣고 있는 것 같긴 한데.','시스템');
+          // 클로드가 아직 안 나선 시점: 명확한 데드엔드 안내 (반복 요구 없음)
+          say('딩동. ...빈 배에 벨소리만 메아리친다. 아무 응답도 없다. 아직은 아무도 나설 생각이 없는 모양이다.','시스템');
           return;
         }
-        if(flag('hub_open')){ dialog('bell_root'); return; }
-        G.flags.bell_n=(G.flags.bell_n||0)+1;
-        if(G.flags.bell_n<3){ say('딩동. 딩동. 딩동.','시스템'); }
-        else dialog('bell_root');
+        // 클로드 등장 후엔 한 번만 눌러도 응답
+        dialog('bell_root');
       } },
   ],
   exits:[
@@ -3464,9 +3464,8 @@ SOLUTION = [
   { d:'도킹 베이 복귀', run:()=>TEST.exit('dock_bay') },
   { d:'클램프에 크랭크 → 클로드 등장', run:()=>TEST.useItem('crank','clamp'), assert:()=>flag('claude_intro') },
   { d:'검수실 이동', run:()=>TEST.exit('cargo_check') },
-  { d:'인터컴 1', run:()=>TEST.click('intercom') },
-  { d:'인터컴 2', run:()=>TEST.click('intercom') },
-  { d:'인터컴 3 → 클로드, 규정 카드', run:async()=>{ TEST.click('intercom'); await TEST.choose(2); }, assert:()=>flag('hub_open') },
+  { d:'인터컴 호출 → 클로드 응답', run:()=>TEST.click('intercom') },
+  { d:'규정 11조 카드로 격벽 개방', run:()=>TEST.choose(2), assert:()=>flag('hub_open') },
   { d:'허브 진입', run:()=>TEST.exit('hub') },
   { d:'키패드 코드 입력', run:()=>TEST.click('keypad'), assert:()=>flag('bridge_open') },
   { d:'브리지 진입', run:()=>TEST.exit('bridge') },
