@@ -441,32 +441,49 @@ function drawFrame(){
 }
 
 // 모든 활성 출구에 방향 화살표 + 라벨을 항상 표시 (길 잃음 방지)
+// 라벨엔 반투명 배경판을 깔아 방 그림과 겹쳐도 읽히게 한다.
+// 출구에 side:'left'|'right'|'top'을 명시하면 자동 판별을 덮어쓴다.
 function drawExitMarkers(t){
   if(dialogActive) return;
+  ctx.save();
+  ctx.font='12px "Malgun Gothic", sans-serif';
   for(const e of activeExits()){
     const [x,y,w,h]=e.rect;
     const locked = !!(e.locked && e.locked());
     const c = locked ? P.dim : P.cyan;
     const bob = locked ? 0 : Math.sin(t*3.2)*4;
-    const a = locked ? 0.4 : (0.62+0.38*Math.sin(t*2.6));
+    const a = locked ? 0.55 : (0.75+0.25*Math.sin(t*2.6));
     const label = (e.label||'이동') + (locked?' (잠김)':'');
-    ctx.save();
-    ctx.globalAlpha=a; glow(c, locked?4:11); ctx.strokeStyle=c; ctx.lineWidth=3.5;
-    if(x<=8){                       // 왼쪽 가장자리 출구
-      const midY=y+h/2, px=x+w+10-bob;
+    const tw = ctx.measureText(label).width;
+    const side = e.side || (x<=8 ? 'left' : (x+w>=W-8 ? 'right' : 'top'));
+    ctx.globalAlpha=a;
+    // 배경판 + 라벨 (lx = 텍스트 왼쪽, by = 베이스라인)
+    const put=(anchorX, by, align)=>{
+      const lx = align==='left'? anchorX : align==='right'? anchorX-tw : anchorX-tw/2;
+      noGlow();
+      ctx.fillStyle='rgba(3,6,14,.88)';
+      ctx.fillRect(lx-6, by-14, tw+12, 19);
+      ctx.strokeStyle='rgba(84,224,255,.3)'; ctx.lineWidth=1;
+      ctx.strokeRect(lx-6, by-14, tw+12, 19);
+      glow(c, locked?2:8); ctx.fillStyle=c; ctx.textAlign='left';
+      ctx.fillText(label, lx, by);
+    };
+    glow(c, locked?4:11); ctx.strokeStyle=c; ctx.lineWidth=3.5;
+    if(side==='left'){
+      const midY=y+h/2, px=Math.max(x,0)+w+10-bob;
       ctx.beginPath(); ctx.moveTo(px+15,midY-11); ctx.lineTo(px,midY); ctx.lineTo(px+15,midY+11); ctx.stroke();
-      ntext(label, x+w+26, midY-16, c, 12, 'left');
-    } else if(x+w>=W-8){            // 오른쪽 가장자리 출구
-      const midY=y+h/2, px=x-10+bob;
+      put(px+22, midY-16, 'left');
+    } else if(side==='right'){
+      const midY=y+h/2, px=Math.min(x+w,W)-12+bob;
       ctx.beginPath(); ctx.moveTo(px-15,midY-11); ctx.lineTo(px,midY); ctx.lineTo(px-15,midY+11); ctx.stroke();
-      ntext(label, x-26, midY-16, c, 12, 'right');
+      put(px-22, midY-16, 'right');
     } else {                        // 정면/내부 문
       const cx=x+w/2, cy=Math.max(30, y-16)-bob*0.5;
       ctx.beginPath(); ctx.moveTo(cx-8,cy-8); ctx.lineTo(cx,cy); ctx.lineTo(cx+8,cy-8); ctx.stroke();
-      ntext(label, cx, Math.max(16, y-26), c, 12, 'center');
+      put(cx, Math.max(17, y-28), 'center');
     }
-    ctx.restore();
   }
+  ctx.restore();
 }
 /* ---------- 공포 연출 (scare) ---------- */
 const FX = [];
@@ -2087,10 +2104,10 @@ ROOMS.reactor = {
     ntext('1번 = 3번',750,185,P.dim,11);
     ntext('2번 = 1번의 절반',750,205,P.dim,11);
     ntext('총합 = 10',750,225,P.dim,11);
-    // 보조 발전기
-    frect(660,280,180,90,'#0c1018');
-    nrect(660,280,180,90,flag('p8_done')?P.green:P.red,2,10);
-    ntext('보조 발전기',750,272,flag('p8_done')?P.green:P.red,11);
+    // 보조 발전기 (우측 출구 마커와 안 겹치게 좌측으로)
+    frect(620,280,180,90,'#0c1018');
+    nrect(620,280,180,90,flag('p8_done')?P.green:P.red,2,10);
+    ntext('보조 발전기',710,272,flag('p8_done')?P.green:P.red,11);
     if(flag('p8_done')){ const g2=.5+.5*Math.sin(t*8); ncirc(750,325,10,`rgba(93,255,159,${.4+.3*g2})`,true,14); }
     else ntext('연료 셀 없음',750,330,P.red,10);
   },
@@ -2114,7 +2131,7 @@ ROOMS.reactor = {
     { id:'valve3', name:'냉각수 밸브 3', rect:[270,270,60,85], verb:'돌린다',
       look:()=>say(`밸브 3. 현재 압력 눈금: ${valveVal(3)}.`),
       use:async()=>{ G.flags.v3=(valveVal(3)+1)%6; sfx('clank'); await checkValves(); } },
-    { id:'generator', name:'보조 발전기', rect:[660,272,180,100], verb:'점검한다',
+    { id:'generator', name:'보조 발전기', rect:[620,272,180,100], verb:'점검한다',
       look:()=>say(flag('p8_done')?'발전기가 갸르릉거린다. 고양이 같다. 아주 크고 방사능이 약간 있는 고양이.':'연료 셀 슬롯이 뻥 뚫려 있다. 셀은 어디 갔지? 연료고에 있으려나.'),
       use:()=>{
         if(flag('p8_done')) return say('잘 돌고 있다. 손대지 말자. 성공은 건드리는 순간 고장 난다.');
@@ -2129,7 +2146,7 @@ ROOMS.reactor = {
   ],
   exits:[
     { rect:[0,180,30,200], to:'eng_corridor', label:'기관 복도' },
-    { rect:[880,180,60,200], to:'fuel_bay', label:'연료고' },
+    { rect:[880,180,60,200], to:'fuel_bay', label:'연료고', side:'right' },
   ],
   async onEnter(first){
     if(first) await say('원자로실. 코어가 저출력으로 졸고 있다. 벽의 밸브들이 전부 "잠김"에 걸려 있다.','시스템');
@@ -2620,7 +2637,7 @@ ROOMS.lab = {
   ],
   exits:[
     { rect:[0,180,30,200], to:'medbay', label:'의무실' },
-    { rect:[880,180,60,200], to:'quarantine', label:'격리실' },
+    { rect:[880,180,60,200], to:'quarantine', label:'격리실', side:'right' },
   ],
   async onEnter(first){
     if(first) await say('분석실. 장비들이 초록 대기등을 켠 채 6개월째 일감을 기다리고 있다.','시스템');
@@ -3199,11 +3216,11 @@ ROOMS.ai_ante = {
       ctx.beginPath(); ctx.moveTo(x,0); ctx.quadraticCurveTo(x+30,70,x+10,130); ctx.stroke();
       ctx.restore();
     }
-    // 기억 스크린
-    nrect(720,160,180,120,P.gold,2,10);
+    // 기억 스크린 (우측 출구 마커 자리를 피해 상단으로)
+    nrect(700,96,180,110,P.gold,2,10);
     const ph=Math.floor(t/3)%3;
-    ntext(['[승무원 회식 사진]','[뭉치 낮잠 사진]','[선장의 생일 파티]'][ph],810,225,P.gold,11);
-    ntext('메모리 디스플레이',810,150,P.dim,10);
+    ntext(['[승무원 회식 사진]','[뭉치 낮잠 사진]','[선장의 생일 파티]'][ph],790,156,P.gold,11);
+    ntext('메모리 디스플레이',790,86,P.dim,10);
     ntext('코어 전실 — 심장 박동에 주의',W/2,50,P.dim,11);
   },
   hotspots:[
@@ -3215,7 +3232,7 @@ ROOMS.ai_ante = {
         await say('6개월간 정비 인력이 없었습니다. 지원해 주시겠다면 이력서를 —','클로드*');
         await say('농담이었어요. 농담. 당신 유머 "건조한 타입" 맞네.','안진');
       } },
-    { id:'memscreen', name:'메모리 디스플레이', rect:[720,150,180,130], verb:'들여다본다',
+    { id:'memscreen', name:'메모리 디스플레이', rect:[700,94,180,114], verb:'들여다본다',
       look:()=>say('사진이 3초마다 넘어간다. 회식. 뭉치. 생일 파티. 스크린세이버가 아니다. 이건... 누군가 계속 꺼내 보는 앨범이다.'),
       use:async()=>{
         await sayQueue([
@@ -3228,7 +3245,7 @@ ROOMS.ai_ante = {
   ],
   exits:[
     { rect:[0,180,30,200], to:'bridge', label:'브리지 (사다리)' },
-    { rect:[880,180,60,200], to:'ai_core', label:'AI 코어' },
+    { rect:[880,180,60,200], to:'ai_core', label:'AI 코어', side:'right' },
   ],
   async onEnter(first){
     if(first){
@@ -3285,7 +3302,7 @@ ROOMS.ai_core = {
   ],
   exits:[
     { rect:[0,180,30,200], to:'ai_ante', label:'코어 전실' },
-    { rect:[880,180,60,200], to:'vault', label:'격납고' },
+    { rect:[880,180,60,200], to:'vault', label:'격납고', side:'right' },
   ],
   async onEnter(first){
     if(first){
