@@ -386,8 +386,7 @@ function sayNow(text, speaker='안진'){
     sayBusy = true;
     sayResolve = res;
     cv.classList.add('reading'); cv.style.cursor='none'; hideLabel();  // 대사 중엔 커서 숨김 + 호버 라벨 제거
-    const dur = clamp(1100 + text.length*75, 1600, 7000);
-    sayTimer = setTimeout(()=>finishSay(), dur);
+    // 자동 진행 없음 — 클릭/스페이스/엔터로만 다음 대사로 넘어감
   });
 }
 function finishSay(){
@@ -415,6 +414,8 @@ function goto(roomId){
   const first = !G.visited[roomId];
   G.room = roomId; G.visited[roomId]=true;
   hideLabel();
+  // 인트로/엔딩 시네마틱 동안엔 하단바 숨김
+  const bb=$('bottombar'); if(bb) bb.style.visibility = (roomId==='_intro')?'hidden':'visible';
   const r = ROOMS[roomId];
   if(typeof playAmb==='function' && r && r.zone!==ambZone){ playAmb(r.zone); }
   if(typeof sfx==='function' && !first) sfx('door');
@@ -995,7 +996,7 @@ function newGame(){
   resetState();
   gameStarted=true;
   $('title').style.display='none';
-  goto(START_ROOM);
+  goto('_intro');
 }
 function continueGame(){
   if(loadGame('auto')){ gameStarted=true; $('title').style.display='none'; }
@@ -1402,6 +1403,66 @@ function claudeEye(x,y,r,t,c=P.red){
   ctx.restore();
 }
 
+/* ================================================================
+   오프닝 시네마틱 (_intro)
+================================================================ */
+ROOMS._intro = {
+  name:'', zone:'act1',
+  draw(ctx,t){
+    if(G._introT0==null) G._introT0=t;
+    const e=t-G._introT0;
+    const p=clamp(e/14,0,1);          // 접근 진행도 0→1
+    // 우주 배경
+    frect(0,0,W,H,'#02030a');
+    const r=srand(7);
+    for(let i=0;i<130;i++){
+      const sx=r()*W, sy=r()*H, tw=.3+.7*Math.abs(Math.sin(t*(.4+r())+i));
+      frect(sx,sy,1.6,1.6,`rgba(216,226,255,${.15+.6*tw})`);
+    }
+    // 소아온호 실루엣 — 오른쪽에서 서서히 커지며 다가옴
+    const sc=lerp(0.55,1.35,p);
+    ctx.save(); ctx.translate(W*lerp(1.12,0.66,p), H*0.48); ctx.scale(sc,sc);
+    poly([[-300,-72],[240,-96],[320,-34],[320,44],[210,96],[-300,84],[-360,8]],'#0a1020',true,1,0);
+    nline(-300,-72,240,-96,'rgba(84,224,255,.4)',2,10);
+    nline(-300,84,210,96,'rgba(84,224,255,.22)',2,6);
+    nline(-360,8,-300,-72,'rgba(84,224,255,.3)',2,6);
+    for(let i=0;i<20;i++){                 // 창문 — 대부분 꺼짐
+      const wx=-250+i*26, wy=-46+(i%3)*32, on=(i%6===0)&&Math.sin(t*3+i)>0.4;
+      frect(wx,wy,6,6, on?'rgba(255,180,84,.9)':'#141a2e');
+    }
+    ncirc(150,-74,5,`rgba(255,84,104,${.35+.45*Math.abs(Math.sin(t*2))})`,true,12); // 경고등
+    ntext('SOAON',-30,0,`rgba(124,137,184,${.25+.15*p})`,26);
+    ctx.restore();
+    // 배송선 거북이 3호 — 왼쪽에서 접근
+    ctx.save(); ctx.translate(W*lerp(0.10,0.32,p), H*lerp(0.74,0.58,p)); ctx.scale(lerp(1.05,0.8,p),lerp(1.05,0.8,p));
+    frect(-52,4,14+Math.random()*10,4,'rgba(94,225,255,.7)');   // 추진 불꽃
+    poly([[-34,10],[-6,-9],[28,-7],[38,4],[26,15],[-28,17]],'#0e1228',true,1,0);
+    poly([[-34,10],[-6,-9],[28,-7],[38,4],[26,15],[-28,17]],P.amber,false,2,8);
+    ncirc(22,2,4,P.cyan,true,8);
+    ntext('거북특급',0,36,P.amber,10);
+    ctx.restore();
+    // 상단 레터박스 느낌
+    frect(0,0,W,40,'#02030a'); frect(0,H-40,W,40,'#02030a');
+  },
+  hotspots:[], exits:[],
+  async onEnter(first){
+    G._introT0=null;
+    await sayQueue([
+      ['시스템','우주. 아무것도 없는 검은 벌판에, 별들만 무심하게 흩뿌려져 있다.'],
+      ['시스템','그 사이로 냉장고만 한 배송선 한 대가, 성실하게 나아간다.'],
+      ['안진','거북특급 배송기사, 안진. 경력 9년.'],
+      ['안진','무사고 기록? 있지. 무보험이라 사고를 낼 수가 없었을 뿐이지만.'],
+      ['안진','오늘의 마지막 배송. 특급 화물 딱 한 건. 수취인은 심우주 화물선 「소아온호」의 선장.'],
+      ['안진','6개월째 교신이 끊긴 배라던데. ...뭐, 서명만 받으면 나머지는 내 알 바 아니고.'],
+      ['시스템','전방에 거대한 그림자. 불빛 대부분이 죽은 채, 소아온호가 어둠 속에 떠 있다.'],
+      ['안진','도킹 응답은 왔단 말이지. 누군가는, 혹은 무언가는, 아직 저 안에서 깨어 있다는 뜻이고.'],
+      ['안진','좋아. 배달하고, 서명받고, 집에 간다. 세상에서 제일 쉬운 일이야.'],
+      ['시스템','— 도킹 클램프가 소아온호의 선체를 물었다. 철컹.'],
+    ]);
+    goto('dock_bay');
+  },
+};
+
 ROOMS.dock_bay = {
   name:'도킹 베이', zone:'act1',
   draw(ctx,t){
@@ -1488,8 +1549,8 @@ ROOMS.dock_bay = {
     await sayQueue([
       ['방송','도킹 절차 완료. 소아온호에 오신 것을... 환영... 합니다.'],
       ['안진','...방송이 중간에 숨을 고르는 배는 처음인데.'],
-      ['안진','6개월 만에 도킹 응답을 한 배. 불은 반쯤 꺼져 있고, 마중은 아무도 없고.'],
-      ['안진','어쨌든. 특급 화물 1건, 수취인 "소아온호 선장". 서명 받고, 집에 간다. 계획은 완벽해.'],
+      ['안진','도킹 베이. 불은 반쯤 꺼졌고, 마중은 아무도 없고. 환영은 무슨.'],
+      ['안진','됐고. 서명받고 집에 갈 방법부터 찾자. 안쪽으로 들어가는 문이 있겠지.'],
     ]);
     addGoal('g_deliver','특급 화물을 수취인(선장)에게 전달하고 서명을 받는다');
   },
@@ -1530,7 +1591,7 @@ ROOMS.cargo_check = {
   hotspots:[
     { id:'breaker', name:'배전반', rect:[680,170,90,130], verb:'열어본다',
       look:()=>say(flag('cargo_power')?'전기가 응응거리며 흐른다. 건강한 소리다.':'배전반이다. 퓨즈 소켓 하나가 시커멓게 타 있다. 원인은... 묻지 말자.'),
-      use:()=>say(flag('cargo_power')?'이미 살려놨다. 전기세는 클로드 앞으로.':'퓨즈가 나갔다. 규격만 맞으면 아무 퓨즈나 꽂으면 된다. 아무 퓨즈나... 어디 있더라.'),
+      use:()=>say(flag('cargo_power')?'이미 살려놨다. 전기세는 이 배 주인 앞으로 달아두자.':'퓨즈가 나갔다. 규격만 맞으면 아무 퓨즈나 꽂으면 된다. 아무 퓨즈나... 어디 있더라.'),
       useItem:{ fuse: async()=>{
         if(flag('cargo_power')) return say('이미 불 들어왔다.');
         take('fuse'); setFlag('cargo_power'); sfx('goal');
