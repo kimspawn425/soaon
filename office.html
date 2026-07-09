@@ -1178,6 +1178,21 @@ function scareJump(kind){
   inputLock=performance.now()+900;
   sfxScream(kind);
 }
+// 4:44 이후의 간헐 배경음: 금속음 대신 멀리서 또각… 또각… / 먼 문 닫힘 (slow-burn)
+scheduleClank = function(){
+  if(clankTimer) clearTimeout(clankTimer);
+  clankTimer=setTimeout(()=>{
+    if(AC && !muted && gameStarted){
+      if(flag('blackout')){
+        const r=Math.random();
+        if(r<.45){ tone(880,.05,'square',.045); tone(880,.05,'square',.04,.42); tone(880,.05,'square',.03,.84); }
+        else if(r<.8){ noiseBurst(.5,.06,200,'lowpass'); tone(70,.4,'sine',.05,0,-20); }
+        else { tone(52,1.8,'sine',.06,0,-6); }
+      } else sfx('clank');
+    }
+    scheduleClank();
+  }, 20000+Math.random()*25000);
+};
 // drawFx 확장: 점프 스케어를 최상단에 그린다
 const _baseDrawFx = drawFx;
 drawFx = function(t){
@@ -1396,25 +1411,19 @@ function deskRow(x,y,n,c){ // 사무 책상 열
 function clock444(x,y){
   ncirc(x,y,14,P.dim,false,5);
   if(!flag('blackout')){
-    // 정전 전: 23:58 — 초침이 살아서 돈다
-    const t=performance.now()/1000;
-    const am=(58/60)*Math.PI*2-Math.PI/2;                   // 분침 58분
-    const ah=((11+58/60)/12)*Math.PI*2-Math.PI/2;           // 시침 11시 58분
-    const as=((t%60)/60)*Math.PI*2-Math.PI/2;               // 초침 (실시간)
+    // 정전 전: 23:58 (시침·분침만 — 조용한 밤)
+    const am=(58/60)*Math.PI*2-Math.PI/2;
+    const ah=((11+58/60)/12)*Math.PI*2-Math.PI/2;
     nline(x,y,x+Math.cos(ah)*7,y+Math.sin(ah)*7,'#d8e2ff',2,4);
     nline(x,y,x+Math.cos(am)*11,y+Math.sin(am)*11,'#d8e2ff',1.5,4);
-    nline(x,y,x+Math.cos(as)*12,y+Math.sin(as)*12,P.cyan,1,5);
     ntext('23:58',x,y+30,P.dim,9);
     return;
   }
-  // 정전 후: 4시 44분 44초에 얼어붙음 (초침이 44초 위에서 미세하게 떤다)
-  const jitter=Math.sin(performance.now()/60)*0.5;
+  // 정전 후: 4시 44분에 얼어붙음
   const am4=(44/60)*Math.PI*2-Math.PI/2;
   const ah4=((4+44/60)/12)*Math.PI*2-Math.PI/2;
-  const as4=(44/60)*Math.PI*2-Math.PI/2;
   nline(x,y,x+Math.cos(ah4)*7,y+Math.sin(ah4)*7,P.red,2,5);
   nline(x,y,x+Math.cos(am4)*11,y+Math.sin(am4)*11,P.red,1.5,5);
-  nline(x,y,x+Math.cos(as4)*12+jitter,y+Math.sin(as4)*12,'rgba(255,84,104,.7)',1,5);
   ntext('4:44',x,y+30,P.red,9);
 }
 
@@ -1497,10 +1506,14 @@ ROOMS.office7 = {
       look:()=>say('비 내리는 도시. 저 수많은 불빛 중에 내 침대가 있다. 4km 거리. 오늘따라 4광년 같다.'),
       use:async()=>{
         await say('창에 이마를 대 본다. 차갑다. 유리에 비친 사무실 — 내 자리 뒤에, 누가 서 있');
-        if(!flag('sj_win')){ setFlag('sj_win'); scareJump('face');
-          await sayQueue([['우진','…!!'],['시스템','돌아봤다. 아무도 없다. 유리엔 이제 나만 비친다.'],
-            ['우진','야근을 너무 했어. 그래. 야근을 너무 했다. 그런 걸로 하자.']]); }
-        else await say('…다시는 안 본다.');
+        if(!flag('sj_win')){ setFlag('sj_win'); scare('flicker',{dur:2.6});
+          await sayQueue([
+            ['시스템','…는 것처럼, 보였다. 아주 잠깐.'],
+            ['시스템','돌아보지 않았다. 대신 유리 속을 한참 다시 봤다. 아무도 없다.'],
+            ['시스템','아무도 없는데 — 방금 그 자리의 유리에만, 입김처럼 김이 서려 있다. 안쪽에서.'],
+            ['우진','…야근을 너무 했어. 그래. 그런 걸로 하자.'],
+          ]); }
+        else await say('…다시는 안 본다. 유리도, 유리에 비치는 것도.');
       } },
   ],
   exits:[ { rect:[880,180,60,200], to:'hall7', label:'복도', side:'right' } ],
@@ -1608,11 +1621,14 @@ ROOMS.pantry = {
         if(!flag('fridge_open')){ setFlag('fridge_open');
           await say('문을 연다. 불이 들어온다. 정전인데. …콜드브루 하나가 덩그러니 있다.','시스템');
           give('coldbrew');
-          if(!flag('sj_fridge')){ setFlag('sj_fridge');
-            await say('문을 닫는 순간 — 스테인리스 문짝에 비친 내 어깨 뒤로, 하얀 얼굴이');
-            scareJump('face');
-            await sayQueue([['시스템','뒤돌았다. 아무도 없다. 냉장고 문에는 이제 내 하얗게 질린 얼굴만 비친다.'],
-              ['우진','…콜드브루나 마시자. 카페인은 헛것에 효과가… 없나? 없겠지. 마시자.']]);
+          if(!flag('sj_fridge')){ setFlag('sj_fridge'); scare('shadow',{rtl:true,y:290});
+            await sayQueue([
+              ['시스템','문을 닫았다. 스테인리스 문짝에 탕비실이 비친다.'],
+              ['시스템','…비친 탕비실의 문가에, 하얀 소매 같은 것이 걸쳐 있다. 이쪽을 보고 서 있는 것처럼.'],
+              ['시스템','천천히 돌아봤다. 문가엔 아무것도 없다. 문짝을 다시 보니 — 소매도 없다.'],
+              ['시스템','냉장고가 웅— 하고 낮게 울었다. 위로였을까.'],
+              ['우진','…콜드브루나 마시자. 카페인은 헛것에 효과가… 없나? 없겠지. 마시자.'],
+            ]);
           }
           return; }
         if(flag('fridge_moved')) return say('냉장고는 할 만큼 했다. 이제 그만 괴롭히자.');
@@ -1672,9 +1688,13 @@ ROOMS.meeting7 = {
           ['우진','0444. 누가 나한테 뭔가를 알려주고 있다. 방법이 소름 끼칠 뿐.'],
         ]);
         setFlag('seen_444'); addScan('의문의 슬라이드: "0444" — 어딘가의 코드? 그리고 "전원 정시 퇴근"');
-        if(!flag('sj_proj')){ setFlag('sj_proj'); scareJump('eyes');
-          await say('슬라이드가 넘어갔다 — 화면 가득, 눈. 눈. 눈. 그리고 다시 "0444".','시스템');
-          await say('프레젠테이션 끝. 질문은 받지 않는 모양이다.','우진'); }
+        if(!flag('sj_proj')){ setFlag('sj_proj'); scare('broadcast'); scare('flicker',{dur:1.6});
+          await sayQueue([
+            ['시스템','슬라이드가 한 장 더, 스스로 넘어갔다. 화면 가득 — 눈. 눈. 눈. 전부 이쪽을 보고 있다.'],
+            ['시스템','움직이지 않는다. 소리도 없다. 그냥, 본다. 한참을.'],
+            ['시스템','그리고 프로젝터는 처음처럼 얌전히 꺼졌다. 스크린엔 잔상만 남았다.'],
+            ['우진','…프레젠테이션 끝. 질문은 받지 않는 모양이다.'],
+          ]); }
       } },
     { id:'mtable', name:'회의 테이블', rect:[280,295,400,50], verb:'살펴본다',
       look:()=>say('상석 쪽 유리에 물컵 자국이 겹겹이 남아 있다. 회의가 길었다는 뜻이다. 늘 길었지.'),
@@ -1993,11 +2013,13 @@ ROOMS.parking = {
     roomBase('#08090c',410);
     // 기둥들
     for(let i=0;i<4;i++){ const x=140+i*220; frect(x,80,46,330,'#0b0d12'); nrect(x,80,46,330,'rgba(124,137,184,.3)',1.5,2); ntext('B2',x+23,110,'rgba(255,209,102,.4)',12); }
-    // 차 한 대
-    poly([[600,340],[620,300],[700,295],[760,315],[770,345],[600,345]],'#0d1016',true,1,0);
-    poly([[600,340],[620,300],[700,295],[760,315],[770,345],[600,345]],'rgba(124,137,184,.5)',false,2,4);
-    ncirc(640,348,14,P.dim,false,3); ncirc(730,348,14,P.dim,false,3);
-    ntext('먼지 쌓인 승용차',685,375,P.dim,9);
+    // 차 한 대 (바닥선 y410에 착지)
+    poly([[600,385],[620,345],[700,340],[760,360],[770,390],[600,390]],'#0d1016',true,1,0);
+    poly([[600,385],[620,345],[700,340],[760,360],[770,390],[600,390]],'rgba(124,137,184,.5)',false,2,4);
+    ncirc(640,396,14,P.dim,false,3); ncirc(730,396,14,P.dim,false,3);
+    ctx.save(); ctx.fillStyle='rgba(0,0,0,.45)';
+    ctx.beginPath(); ctx.ellipse(685,412,100,10,0,0,Math.PI*2); ctx.fill(); ctx.restore(); // 그림자
+    ntext('먼지 쌓인 승용차',685,335,P.dim,9);
     nrect(400,150,160,230,P.gold,2.5,10); ntext('▲ ▼',480,140,P.gold,12); // 엘베
     // 경비실 문 (오른쪽 벽, 불빛 새어나옴)
     doorShape(852,180,70,200,P.amber,true);
@@ -2012,7 +2034,7 @@ ROOMS.parking = {
     { id:'elevB', name:'엘리베이터', rect:[400,140,160,240], verb:'호출한다',
       look:()=>say('지하 2층. 엘리베이터 문에 붙은 스티커: "정원 초과 시 경보가 울립니다". 혼자 탔는데 울리면 어쩌지.'),
       use:()=>dialog('elevator') },
-    { id:'oldcar', name:'먼지 쌓인 승용차', rect:[590,290,190,90], verb:'들여다본다',
+    { id:'oldcar', name:'먼지 쌓인 승용차', rect:[590,338,190,74], verb:'들여다본다',
       look:()=>say('2000년대 초반 소형차. 먼지가 손가락 한 마디. 주차위반 스티커가 화석처럼 붙어 있다.'),
       use:async()=>{
         await say('차창 안 — 조수석에 서류가방, 뒷좌석에 여성용 카디건. 20년째 주인을 기다리는 중이다.','시스템');
