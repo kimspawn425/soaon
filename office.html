@@ -370,7 +370,7 @@ const subsEl = $('subs');
 let sayTimer = null, sayResolve = null, sayBusy = false;
 const SPEAKER_CLS = {'우진':'sp-anjin','상무':'sp-claude','조씨':'sp-claude2','세영':'sp-ghost','방송':'sp-radio','시스템':'sp-sys'};
 
-function sayNow(text, speaker='안진'){
+function sayNow(text, speaker='우진'){
   return new Promise(res=>{
     if(typeof TESTFAST!=='undefined' && TESTFAST){ res(); return; }
     // 대화 기록 (순수 UI 토스트는 제외)
@@ -402,7 +402,7 @@ function finishSay(){
 async function sayQueue(lines){
   for(const [sp,tx] of lines){ await sayNow(tx,sp); }
 }
-function say(text, speaker='안진'){ return sayNow(text, speaker); }
+function say(text, speaker='우진'){ return sayNow(text, speaker); }
 
 /* ================================================================
    3. 방 이동 / 게임 루프
@@ -842,7 +842,7 @@ async function dialog(startId){
   while(node){
     if(node.lines){ await sayQueue(node.lines); }
     const text = typeof node.text==='function'? node.text() : node.text;
-    if(text) await sayNow(text, node.speaker||'안진');
+    if(text) await sayNow(text, node.speaker||'우진');
     if(node.action) await node.action();
     const avail = (node.choices||[]).filter(c=>!c.cond||c.cond());
     if(avail.length){
@@ -1393,7 +1393,30 @@ function deskRow(x,y,n,c){ // 사무 책상 열
     nline(dx+20,y+10,dx+20,y+52,c,2,0); nline(dx+100,y+10,dx+100,y+52,c,2,0);
   }
 }
-function clock444(x,y){ ncirc(x,y,14,P.dim,false,5); nline(x,y,x-6,y-8,P.red,2,5); nline(x,y,x+8,y+7,P.red,1.5,5); ntext('4:44',x,y+30,P.red,9); }
+function clock444(x,y){
+  ncirc(x,y,14,P.dim,false,5);
+  if(!flag('blackout')){
+    // 정전 전: 23:58 — 초침이 살아서 돈다
+    const t=performance.now()/1000;
+    const am=(58/60)*Math.PI*2-Math.PI/2;                   // 분침 58분
+    const ah=((11+58/60)/12)*Math.PI*2-Math.PI/2;           // 시침 11시 58분
+    const as=((t%60)/60)*Math.PI*2-Math.PI/2;               // 초침 (실시간)
+    nline(x,y,x+Math.cos(ah)*7,y+Math.sin(ah)*7,'#d8e2ff',2,4);
+    nline(x,y,x+Math.cos(am)*11,y+Math.sin(am)*11,'#d8e2ff',1.5,4);
+    nline(x,y,x+Math.cos(as)*12,y+Math.sin(as)*12,P.cyan,1,5);
+    ntext('23:58',x,y+30,P.dim,9);
+    return;
+  }
+  // 정전 후: 4시 44분 44초에 얼어붙음 (초침이 44초 위에서 미세하게 떤다)
+  const jitter=Math.sin(performance.now()/60)*0.5;
+  const am4=(44/60)*Math.PI*2-Math.PI/2;
+  const ah4=((4+44/60)/12)*Math.PI*2-Math.PI/2;
+  const as4=(44/60)*Math.PI*2-Math.PI/2;
+  nline(x,y,x+Math.cos(ah4)*7,y+Math.sin(ah4)*7,P.red,2,5);
+  nline(x,y,x+Math.cos(am4)*11,y+Math.sin(am4)*11,P.red,1.5,5);
+  nline(x,y,x+Math.cos(as4)*12+jitter,y+Math.sin(as4)*12,'rgba(255,84,104,.7)',1,5);
+  ntext('4:44',x,y+30,P.red,9);
+}
 
 ROOMS._intro = {
   name:'', zone:'f7',
