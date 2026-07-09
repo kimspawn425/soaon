@@ -1561,7 +1561,7 @@ ROOMS.hall7 = {
   exits:[
     { rect:[0,180,30,200], to:'office7', label:'사무실' },
     { rect:[760,190,70,190], to:'pantry', label:'탕비실' },
-    { rect:[852,180,70,200], to:'meeting7', label:'회의실', side:'right' },
+    { rect:[852,180,70,200], to:'meeting7', label:'회의실' },
     { rect:[620,200,80,180], to:'stair7', label:'비상계단',
       locked:()=>!flag('stair_open'), lockedMsg:()=> has('stair_key')?'열쇠가 있잖아. 열쇠를 문에 쓰자.':'잠겼다. 리더기도 죽었다. 열쇠가 필요하다 — 요즘 세상에 열쇠라니.' },
   ],
@@ -1794,7 +1794,7 @@ ROOMS.hall8 = {
   ],
   exits:[
     { rect:[0,180,30,200], to:'secretary', label:'비서실' },
-    { rect:[852,180,70,200], to:'ceo', label:'대표이사실', side:'right' },
+    { rect:[852,180,70,200], to:'ceo', label:'대표이사실' },
     { rect:[600,190,80,190], to:'meeting8', label:'임원 회의실' },
   ],
   async onEnter(first){
@@ -2025,7 +2025,7 @@ ROOMS.parking = {
       use:()=>say('"쉿" 아래 작은 글씨: "새벽엔 조용히. 걔가 듣는다. — 경비 조". 조씨 아저씨의 필체 같은데.') },
   ],
   exits:[
-    { rect:[852,180,70,200], to:'security', label:'경비실', side:'right' },
+    { rect:[852,180,70,200], to:'security', label:'경비실' },
     { rect:[0,180,30,230], to:'archive', label:'문서고' },
     { rect:[160,392,160,40], to:'incinerator', label:'폐기실 (내리막)' },
   ],
@@ -2296,7 +2296,7 @@ ROOMS.hall4 = {
   exits:[
     { rect:[0,180,30,200], to:'accounting', label:'옛 경리부' },
     { rect:[760,190,75,190], to:'storage4', label:'창고' },
-    { rect:[852,200,70,180], to:'server4', label:'옛 전산실', side:'right' },
+    { rect:[852,200,70,180], to:'server4', label:'옛 전산실' },
   ],
   async onEnter(first){ if(first) await sayQueue([
     ['시스템','4층. 엘리베이터 문이 열리는 순간부터 공기가 다르다. 낡고, 조용하고 — 슬프다.'],
