@@ -1517,10 +1517,15 @@ ROOMS.hall7 = {
     nrect(400,150,160,230, flag('act2_open')?P.gold:P.dim, 2.5, 10);
     nline(480,150,480,380,P.dim,2,4);
     ntext(flag('act2_open')?'▲ ▼':'—', 480,140, flag('act2_open')?P.gold:P.dim, 12);
-    // 사원증 리더기
-    nrect(600,240,26,40,P.red,1.5,8);
+    // 비상계단 문 (엘베 오른쪽) + 사원증 리더기 (문 왼쪽 옆 벽)
+    doorShape(620,200,80,180, flag('stair_open')?P.green:P.red, flag('stair_open'));
+    nrect(586,242,24,38,P.red,1.5,8);
+    // 탕비실 문 (열린 문)
+    doorShape(760,190,70,190,P.cyan,true);
+    // 회의실 문 (오른쪽 벽)
+    doorShape(852,180,70,200,P.violet,false);
     // 인터폰
-    ncirc(660,255,10,P.gold,false,8); ntext('인터폰',660,235,P.gold,9);
+    ncirc(730,140,10,P.gold,false,8); ntext('인터폰',730,120,P.gold,9);
     // 층 안내판
     nrect(120,110,150,50,P.dim,1.5,4); ntext('7F — 물류기획팀',195,140,P.dim,11);
     clock444(320,100);
@@ -1537,13 +1542,13 @@ ROOMS.hall7 = {
           addGoal('g_stair','비상계단으로 내려간다'); return; }
         say('죽었다. 확실하게. 병원이라면 사망선고 나왔다.');
       } },
-    { id:'reader', name:'사원증 리더기', rect:[595,232,36,52], verb:'태그한다',
+    { id:'reader', name:'사원증 리더기', rect:[582,236,32,48], verb:'태그한다',
       look:()=>say('비상계단 문의 리더기. 빨간 불이 심장박동처럼 깜빡인다. 정전인데 얘만 살아 있다.'),
       use:()=>say('사원증을 태그했다. 삑— 소리 대신, 어디선가 여자 웃음소리 같은 게… 아니다. 기계음이다. 기계음이라고 하자. 아무튼 안 열린다.') },
-    { id:'iphone7', name:'인터폰', rect:[635,230,50,50], verb:'호출한다',
+    { id:'iphone7', name:'인터폰', rect:[705,115,50,50], verb:'호출한다',
       look:()=>say('경비실 직통 인터폰. 이 시간에 받을 사람이 있을까.'),
       use:()=>dialog('interphone') },
-    { id:'stairdoor', name:'비상계단 문', rect:[560,200,70,180], verb:'연다',
+    { id:'stairdoor', name:'비상계단 문', rect:[620,200,80,180], verb:'연다',
       visible:()=>!flag('stair_open'),
       look:()=>say('묵직한 방화문. 리더기는 죽었고, 아래쪽에 구식 열쇠 구멍이 하나 있다.'),
       use:()=>say(has('stair_key')?'열쇠가 주머니에 있다. 열쇠를 문에 쓰자.':'잠겼다. 열쇠 구멍이 있으니, 어딘가에 열쇠도 있겠지.'),
@@ -1555,9 +1560,9 @@ ROOMS.hall7 = {
   ],
   exits:[
     { rect:[0,180,30,200], to:'office7', label:'사무실' },
-    { rect:[760,180,70,200], to:'pantry', label:'탕비실' },
-    { rect:[840,180,80,200], to:'meeting7', label:'회의실', side:'right' },
-    { rect:[560,200,70,180], to:'stair7', label:'비상계단',
+    { rect:[760,190,70,190], to:'pantry', label:'탕비실' },
+    { rect:[852,180,70,200], to:'meeting7', label:'회의실', side:'right' },
+    { rect:[620,200,80,180], to:'stair7', label:'비상계단',
       locked:()=>!flag('stair_open'), lockedMsg:()=> has('stair_key')?'열쇠가 있잖아. 열쇠를 문에 쓰자.':'잠겼다. 리더기도 죽었다. 열쇠가 필요하다 — 요즘 세상에 열쇠라니.' },
   ],
   async onEnter(first){
@@ -1576,7 +1581,17 @@ ROOMS.pantry = {
     frect(120,180,110,200, flag('fridge_moved')?'#0b1016':'#0d141c');
     nrect(120,180,110,200,P.cyan,2,8);
     nline(175,200,175,360,P.cyan,1,3);
-    if(flag('fridge_moved')){ nrect(90,200,24,160,'rgba(84,224,255,.3)',1.5,4); if(!flag('got_stairkey')) ncirc(102,340,5,P.gold,true,12); }
+    // 냉장고 뒤 틈: 문을 연 뒤부터 어두운 틈 + 반짝임이 보인다
+    if(flag('fridge_open')){
+      frect(94,195,26,175,'#020409');
+      nrect(94,195,26,175,'rgba(84,224,255,.35)',1.5,4);
+      if(!flag('got_stairkey')){
+        const gl=.5+.5*Math.sin(t*3.1);
+        ncirc(107,340,5,`rgba(255,209,102,${.45+.45*gl})`,true,14);
+        ntext('…반짝',107,385,P.gold,9);
+      }
+      if(flag('fridge_moved')) ntext('(밀어낸 틈)',107,182,P.dim,8);
+    }
     ntext('냉장고',175,170,P.dim,10);
     // 싱크대/커피머신
     frect(400,280,300,16,'#0b1122'); nrect(400,280,300,16,P.dim,1.5,4);
@@ -1604,7 +1619,7 @@ ROOMS.pantry = {
         say('안은 비었다. 콜드브루가 마지막 재고였다.');
       },
       useItem:{ cutter: ()=>say('냉장고를 커터칼로? 나는 야근에 지쳤지 미치진 않았다.') } },
-    { id:'fridge_gap', name:'냉장고 뒤 틈', rect:[95,190,30,180], verb:'들여다본다',
+    { id:'fridge_gap', name:'냉장고 뒤 틈', rect:[88,188,32,190], verb:'들여다본다',
       visible:()=>flag('fridge_open'),
       look:()=>say('냉장고와 벽 사이. 뭔가 반짝인다. 조씨 아저씨 말대로다.'),
       use:async()=>{
@@ -1757,7 +1772,10 @@ ROOMS.hall8 = {
       ncirc(130+i*110,165,18,'rgba(124,137,184,.35)',false,2);
       poly([[112+i*110,215],[130+i*110,180],[148+i*110,215]],'rgba(124,137,184,.35)',false,1.5,2); }
     ntext('역대 대표이사',200,115,P.dim,10);
-    ncirc(700,255,10,P.gold,false,8); ntext('인터폰',700,235,P.gold,9);
+    // 임원 회의실 문 + 대표이사실 문 (오른쪽 벽)
+    doorShape(600,190,80,190,P.cyan,false);
+    doorShape(852,180,70,200,P.gold,false);
+    ncirc(730,140,10,P.gold,false,8); ntext('인터폰',730,120,P.gold,9);
     clock444(320,100);
   },
   hotspots:[
@@ -1770,13 +1788,13 @@ ROOMS.hall8 = {
         if(!flag('sj_port')){ setFlag('sj_port'); scare('flicker',{dur:1.2});
           await say('비상등이 깜빡인 찰나 — 세 초상화의 미소가 전부 사라졌다가, 돌아왔다.','시스템');
           await say('…미술관은 원래 이래. 조명 문제야. 그런 걸로 하자.','우진'); } } },
-    { id:'iphone8', name:'인터폰', rect:[675,230,50,50], verb:'호출한다',
+    { id:'iphone8', name:'인터폰', rect:[705,115,50,50], verb:'호출한다',
       look:()=>say('8층에도 인터폰. 조씨 아저씨는 이 밤의 유일한 통신망이다.'),
       use:()=>dialog('interphone') },
   ],
   exits:[
     { rect:[0,180,30,200], to:'secretary', label:'비서실' },
-    { rect:[840,180,80,200], to:'ceo', label:'대표이사실', side:'right' },
+    { rect:[852,180,70,200], to:'ceo', label:'대표이사실', side:'right' },
     { rect:[600,190,80,190], to:'meeting8', label:'임원 회의실' },
   ],
   async onEnter(first){
@@ -1979,6 +1997,13 @@ ROOMS.parking = {
     ncirc(640,348,14,P.dim,false,3); ncirc(730,348,14,P.dim,false,3);
     ntext('먼지 쌓인 승용차',685,375,P.dim,9);
     nrect(400,150,160,230,P.gold,2.5,10); ntext('▲ ▼',480,140,P.gold,12); // 엘베
+    // 경비실 문 (오른쪽 벽, 불빛 새어나옴)
+    doorShape(852,180,70,200,P.amber,true);
+    frect(852,300,70,80,'rgba(255,209,102,.06)');
+    // 폐기실 내리막 (바닥 해치 + 경고 빗금)
+    poly([[180,392],[300,392],[320,430],[160,430]],'#0a0806',true,1,0);
+    poly([[180,392],[300,392],[320,430],[160,430]],P.red,false,1.5,6);
+    for(let i2=0;i2<4;i2++){ nline(185+i2*34,394,175+i2*34,428,'rgba(255,209,102,.4)',4,0); }
     const fl=Math.sin(t*7.7)>0.93?0.2:1; ctx.fillStyle=`rgba(140,200,160,${.03*fl})`; ctx.fillRect(0,0,W,H);
   },
   hotspots:[
@@ -2000,9 +2025,9 @@ ROOMS.parking = {
       use:()=>say('"쉿" 아래 작은 글씨: "새벽엔 조용히. 걔가 듣는다. — 경비 조". 조씨 아저씨의 필체 같은데.') },
   ],
   exits:[
-    { rect:[840,180,80,200], to:'security', label:'경비실', side:'right' },
+    { rect:[852,180,70,200], to:'security', label:'경비실', side:'right' },
     { rect:[0,180,30,230], to:'archive', label:'문서고' },
-    { rect:[180,390,120,40], to:'incinerator', label:'폐기실' },
+    { rect:[160,392,160,40], to:'incinerator', label:'폐기실 (내리막)' },
   ],
   async onEnter(first){ if(first) await say('지하 2층. 콘크리트의 냉기가 발밑에서 올라온다. "아래층은 춥다" — 정말로 춥다.','시스템'); },
 };
@@ -2241,7 +2266,10 @@ ROOMS.hall4 = {
     // 빛바랜 벽 — 옛 부서 팻말 자국
     nrect(120,140,180,40,'rgba(124,137,184,.25)',1.5,2);
     ntext('(팻말이 떼어진 자국 — 「경리부」)',210,200,P.dim,10);
-    ncirc(700,255,10,P.gold,false,8); ntext('인터폰',700,235,P.gold,9);
+    ncirc(700,140,10,P.gold,false,8); ntext('인터폰',700,120,P.gold,9);
+    // 창고 문 + 옛 전산실 문 (오른쪽 벽)
+    doorShape(760,190,75,190,P.dim,false);
+    doorShape(852,200,70,180,P.cyan,false);
     // 벽 얼룩
     ctx.save(); ctx.fillStyle='rgba(30,26,22,.5)';
     ctx.beginPath(); ctx.ellipse(640,330,50,70,.3,0,Math.PI*2); ctx.fill(); ctx.restore();
@@ -2261,14 +2289,14 @@ ROOMS.hall4 = {
           await say('얼룩에 손을 대 봤다. 벽이 — 따뜻하다. 이 건물에서 처음 만지는 온기다.','시스템');
           await say('…춥다더니. 아래층은 춥다더니, 왜 여기만.','우진'); }
         else await say('온기가 아직 있다. 여기가 그녀의 자리였던 거다. 층 전체가.'); } },
-    { id:'iphone4', name:'인터폰', rect:[675,230,50,50], verb:'호출한다',
+    { id:'iphone4', name:'인터폰', rect:[675,115,50,50], verb:'호출한다',
       look:()=>say('인터폰. 4층 것만 유난히 낡았다.'),
       use:()=>dialog('interphone') },
   ],
   exits:[
     { rect:[0,180,30,200], to:'accounting', label:'옛 경리부' },
-    { rect:[770,180,75,200], to:'storage4', label:'창고' },
-    { rect:[860,395,60,60], to:'server4', label:'옛 전산실', side:'right' },
+    { rect:[760,190,75,190], to:'storage4', label:'창고' },
+    { rect:[852,200,70,180], to:'server4', label:'옛 전산실', side:'right' },
   ],
   async onEnter(first){ if(first) await sayQueue([
     ['시스템','4층. 엘리베이터 문이 열리는 순간부터 공기가 다르다. 낡고, 조용하고 — 슬프다.'],
@@ -2517,7 +2545,7 @@ ROOMS.frozen = {
     clock444(480,100);
   },
   hotspots:[
-    { id:'seyoung', name:'그녀', rect:[630,220,100,150], verb:'다가간다',
+    { id:'seyoung', name:'그녀', rect:[630,205,100,100], verb:'다가간다',
       visible:()=>!flag('sy_gone'),
       look:()=>say('책상 앞에 앉아 서류를 정리하는 뒷모습. 무섭지 않다. 이상하게도, 전혀.'),
       use:()=>dialog(flag('met_sy')?'sy_talk':'sy_meet') },
