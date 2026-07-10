@@ -1324,16 +1324,20 @@ function nextHint(){
   if(!flag('cab_open8')) return '취임일. 10월 14일. 1-0-1-4. 비서실 캐비닛.';
   if(!flag('safe_open')) return '캐비닛에서 나온 열쇠, 대표이사실 금고 거야. …그 방 거울은 보지 말고.';
   if(!flag('met_jo')) return 'B2 경비실에 병수 아저씨가 있다. 이 건물에서 유일하게 살아 있는 게 확실한 사람.';
+  // 기록 3장이 모이면 다른 무엇보다 계단이 먼저다
+  if(docCount()>=3 && !flag('c4_done')) return '세 장 다 모았잖아요. 이제 비상계단이야. 스물두 계단하고 반. …다른 볼일은 나중에 해도 돼요.';
   if(!flag('tape_seen')) return '내가 준 테이프부터 봐요. CCTV 모니터 아래 재생 슬롯이 있어. …보고 나서 마저 얘기합시다.';
   if(!flag('box_open')) return '폐기실에 태우라고 내려온 상자가 하나 있어. 20년을 저 자리에 있었는데, 아무도 못 태웠지. 문은 내 마스터키로 열고, 상자는 커터칼로.';
   if(!flag('code_known')) return '문서고 분류 코드는 4층 경리부 장부에 적혀 있을 거요. 마침 4층이 열렸잖아. 걔가 보여주고 싶은가 봐.';
   if(!flag('desk_open')) return '유품 열쇠라… 4층 경리부, 창가에서 두 번째 자리. 먼지가 안 쌓인 책상은 하나뿐이야.';
   if(!flag('doc2_got')) return '문서고. 마스터키로 열고, 장부의 분류 코드로 서가를 찾아요. …뭐가 따라와도 왼쪽 말고 오른쪽.';
-  if(!has('fuse2')) return '전산실 기계? 퓨즈가 나갔을 거야. 4층 창고를 뒤져 봐요. …창고의 그건 마네킹이야. 아마도.';
+  if(!has('fuse2') && !flag('p_fuse')) return '전산실 기계? 퓨즈가 나갔을 거야. 4층 창고를 뒤져 봐요. …창고의 그건 마네킹이야. 아마도.';
   if(!flag('printer_fixed')) return '기록기엔 퓨즈하고 감열지가 들어가요. 감열지는 8층 비서실 캐비닛에 있었을 거고.';
   if(!flag('doc3_got')) return '기록기를 고쳤으면 그 애의 마지막 카드를 뽑아 봐요. …마음 단단히 먹고.';
   if(!flag('c4_done')) return '세 장을 다 모았구먼. 비상계단으로 가요. 스물두 계단하고 반. 반 계단에서 멈춰야 해요. 세는 걸 틀리면 안 돼.';
-  if(!flag('att_restored')) return '멈춘 사무실의 근태 단말기. 사번, 이름, 그리고 퇴근 시각. 서류 세 장에 전부 있어요.';
+  if(!flag('att_restored')) return has('diary')
+    ? '멈춘 사무실의 근태 단말기. 사번, 이름, 그리고 퇴근 시각. 갖고 있는 서류에 전부 있어요.'
+    : '이름을 증명할 물건이 필요해요. 그 애 책상 서랍 — 유품 열쇠로 열어 봐요. 4층은 엘리베이터로 언제든 다시 갈 수 있어.';
   return '이제 내가 해줄 말은 없어요. …잘 보내줘요.';
 }
 DIALOGS.interphone = {
@@ -1823,7 +1827,10 @@ ROOMS.stair7 = {
       look:()=>say('어둠이 고여 있는 계단. 4층, B2… 그리고 김병수가 말한 "스물두 계단 반".'),
       use:async()=>{
         if(docCount()>=3 && !flag('c4_done')) return crisis('c4');
-        if(flag('c4_done')) return say('반 계단의 문은 이미 열었다. 갈 길은 정해져 있다.');
+        if(flag('c4_done')){
+          await say('스물두 계단, 그리고 반. …문은 아직 그 자리에서 기다리고 있다.','시스템');
+          goto('gap_hall'); return;
+        }
         if(!flag('c1_done')) return; // c1은 onEnter에서
         say('엘리베이터가 있는데 굳이 이 계단을? 발소리의 주인과 재회하고 싶지 않다.');
       } },
