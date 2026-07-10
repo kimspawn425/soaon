@@ -1269,16 +1269,48 @@ async function crisis(nodeId){
    OVERTIME 확장 2: 엘리베이터 / 힌트 (조씨 인터폰)
 ================================================================ */
 const FLOOR_HALL={ '7':'hall7', '8':'hall8', '4':'hall4', 'B2':'parking' };
+// B2의 볼일(테이프 + 유품)이 끝나면 4층이 열린다
+async function afterB2Check(){
+  if(flag('tape_seen') && flag('box_open') && !flag('f4_open')){
+    setFlag('f4_open');
+    await sayQueue([
+      ['시스템','— 딩. 주차장 쪽에서 엘리베이터가 다시 저 혼자 울렸다.'],
+      ['우진','…4층. 테이프 속에서 그녀가 걷던 층. 이제 직접 보라는 거다.'],
+    ]);
+    doneGoal('g_next_b2');
+    addGoal('g_next_f4','새로 열린 4층 — 옛 경리부로 간다');
+  }
+}
+// 기록 세 장이 모두 모이면 조씨가 인터폰으로 마지막 길을 알려준다
+async function maybeJoCall(){
+  if(docCount()===3 && !flag('jo_stairs_told')){
+    setFlag('jo_stairs_told');
+    await sayQueue([
+      ['시스템','— 그때 벽의 인터폰이 저 혼자 지직거렸다.'],
+      ['조씨','…봤어요? 방금 건물 전체 전등이 한 번 숨을 쉬었어. 세 장, 다 모은 거지?'],
+      ['조씨','그럼 이제 그 애한테 가요. 비상계단으로. 잘 들어요 — 5층에서 4층으로, 스물두 계단하고 "반". 반 계단에서 멈춰야 해. 세는 걸 틀리면 안 돼요.'],
+      ['우진','…알았어요. 스물두 계단하고 반.'],
+    ]);
+    doneGoal('g_next_f4');
+    addGoal('g_stair2','비상계단, 스물두 계단 반 — 그녀에게 간다');
+  }
+}
 DIALOGS.elevator = {
   speaker:'시스템',
-  text:()=> flag('act2_open')? '층 버튼 중 7·8·4·B2만 불이 들어와 있다. 나머지는 눌러도 죽어 있다.' : '버튼이 전부 죽어 있다.',
+  text:()=>{
+    if(!flag('act2_open')) return '버튼이 전부 죽어 있다.';
+    const lit=['7','8']; if(flag('doc1_got')) lit.push('B2'); if(flag('f4_open')) lit.push('4');
+    return `불이 들어온 층 버튼: ${lit.join(' · ')}. 나머지는 눌러도 죽어 있다.`;
+  },
   choices:[
     { text:'7층 (사무실)', cond:()=>flag('act2_open'), next:null, action:()=>{ if(G.room!=='hall7'){ sfx('door'); goto('hall7'); } else say('여기가 7층이다. 버튼이 나를 비웃는 것 같다.'); } },
     { text:'8층 (임원실)', cond:()=>flag('act2_open'), next:null, action:()=>{ if(G.room!=='hall8'){ sfx('door'); goto('hall8'); } else say('여기가 8층이다.'); } },
-    { text:'4층 (구관)', cond:()=>flag('act2_open'), next:null, action:()=>{ if(G.room!=='hall4'){ sfx('door'); goto('hall4'); } else say('여기가 4층이다.'); } },
     { text:'B2 (주차장)', cond:()=>flag('act2_open'), next:null, action:()=>{
-        if(!flag('cmo_called')){ say('B2 버튼을 눌렀다. 불이 세 번 깜빡이더니 도로 꺼졌다. …아직 거긴 순서가 아니라는 뜻인가.','시스템'); return; }
+        if(!flag('doc1_got')){ say('B2 버튼을 눌렀다. 불이 세 번 깜빡이더니 도로 꺼졌다. …아직 순서가 아니라는 뜻이다. 8층 볼일이 안 끝난 거겠지.','시스템'); return; }
         if(G.room!=='parking'){ sfx('door'); goto('parking'); } else say('여기가 B2다.'); } },
+    { text:'4층 (구관)', cond:()=>flag('act2_open'), next:null, action:()=>{
+        if(!flag('f4_open')){ say('4층 버튼은 죽어 있다. …아직은. 이 밤엔 순서가 있다.','시스템'); return; }
+        if(G.room!=='hall4'){ sfx('door'); goto('hall4'); } else say('여기가 4층이다.'); } },
     { text:'(내린다)', next:null },
   ],
 };
@@ -1292,11 +1324,11 @@ function nextHint(){
   if(!flag('cab_open8')) return '취임일. 10월 14일. 1-0-1-4. 비서실 캐비닛.';
   if(!flag('safe_open')) return '캐비닛에서 나온 열쇠, 대표이사실 금고 거야. …그 방 거울은 보지 말고.';
   if(!flag('met_jo')) return 'B2 경비실에 조씨 아저씨가 있다. 이 건물에서 유일하게 살아 있는 게 확실한 사람.';
-  if(!has('master_key')) return '조씨: 문서고 잠겼지? 내 마스터키 가져가요. 대신 분류 코드는 나도 몰라. 그건 경리부가 알지.';
-  if(!flag('code_known')) return '조씨: 분류 코드는 4층 경리부 장부에 적혀 있을 거요. 옛날 경리부는 4층이었어.';
+  if(!flag('tape_seen')) return '조씨: 내가 준 테이프부터 봐요. CCTV 모니터 아래 재생 슬롯이 있어. …보고 나서 마저 얘기합시다.';
+  if(!flag('box_open')) return '조씨: 폐기실에 태우라고 내려온 상자가 하나 있어. 20년을 저 자리에 있었는데, 아무도 못 태웠지. 문은 내 마스터키로 열고, 상자는 커터칼로.';
+  if(!flag('code_known')) return '조씨: 문서고 분류 코드는 4층 경리부 장부에 적혀 있을 거요. 마침 4층이 열렸잖아. 걔가 보여주고 싶은가 봐.';
+  if(!flag('desk_open')) return '유품 열쇠라… 4층 경리부, 창가에서 두 번째 자리. 먼지가 안 쌓인 책상은 하나뿐이야.';
   if(!flag('doc2_got')) return '문서고. 마스터키로 열고, 장부의 분류 코드로 서가를 찾아요. …뭐가 따라와도 왼쪽 말고 오른쪽.';
-  if(!flag('box_open')) return '조씨: 폐기실에 태우라고 내려온 상자가 하나 있어. 20년을 저 자리에 있었는데, 아무도 못 태웠지. 커터칼 있으면 열어 봐요.';
-  if(!flag('desk_open')) return '유품 열쇠라… 4층 경리부, 창가에서 두 번째 자리. 서랍이 잠겨 있는 책상은 하나뿐이야.';
   if(!has('fuse2')) return '조씨: 전산실 기계? 퓨즈가 나갔을 거야. 4층 창고를 뒤져 봐요. …창고의 그건 마네킹이야. 아마도.';
   if(!flag('printer_fixed')) return '기록기엔 퓨즈하고 감열지가 들어가요. 감열지는 8층 비서실 캐비닛에 있었을 거고.';
   if(!flag('doc3_got')) return '기록기를 고쳤으면 그 애의 마지막 카드를 뽑아 봐요. …마음 단단히 먹고.';
@@ -1760,16 +1792,17 @@ DIALOGS.c1_pass = {
       ['시스템','복도로 나오자 계단실 문이 등 뒤에서 스르륵 잠겼다. 열쇠 구멍이… 없어졌다. 문에서.'],
       ['시스템','엘리베이터 문이 열려 있다. 안은 비었다. 뛰어들어가 버튼부터 누른다 — 1층. 1층. 1층!'],
       ['우진','…1층이 죽어 있다. 로비도, 주차장 출구 층도. 나가는 버튼만 전부.'],
-      ['시스템','불이 들어온 버튼은 넷 — 7, 8, 4, B2. 지금 있는 층과, 갈 이유가 없는 세 층.'],
+      ['시스템','불이 들어온 버튼은 둘 — 지금 있는 7층. 그리고, 8층.'],
       ['시스템','— 그때, 복도 인터폰이 지직거렸다.'],
       ['조씨','거기 7층 양반? 방금 엘리베이터 살아났지. …오늘 밤엔 밖으로 못 나가요. 정문이고 비상구고, 나가는 문은 다 안 열릴 거야.'],
       ['우진','네?! 그럼 저는 아침까지 여기—'],
-      ['조씨','방법이 없는 건 아니에요. 걔가 열어준 층들 있잖아. 거기서 걔가 "보여주려는 걸" 다 보면 — 밤이 끝나요. 늘 그랬어. 20년 동안.'],
-      ['우진','…그러니까 퇴근을 하려면, 먼저 이 밤의 용건부터 들어줘야 한다는 거네요.'],
+      ['조씨','방법이 없는 건 아니에요. 걔가 층을 열어줄 거야. 한 번에 하나씩, 보여주고 싶은 순서대로. 다 보고 나면 — 밤이 끝나요. 늘 그랬어. 20년 동안.'],
+      ['조씨','지금 열린 게 8층이면… 임원층부터 보여주고 싶은 게 있다는 거지.'],
+      ['우진','…그러니까 퇴근을 하려면, 먼저 이 밤의 용건부터 순서대로 들어줘야 한다는 거네요.'],
       ['우진','야근이 야근을 시키네. 좋아. …좋진 않지만, 타자.'],
     ]);
     setFlag('act2_open');
-    addGoal('g_truth','집에 가는 유일한 방법: 열린 층(8·4·B2)에서 이 밤이 "보여주려는 것"을 확인한다');
+    addGoal('g_truth','집에 가는 유일한 방법: 그녀가 여는 층을 순서대로 따라간다 (지금: 8층)');
   },
   next:null,
 };
@@ -1962,6 +1995,11 @@ ROOMS.ceo = {
         give('doc1'); setFlag('doc1_got');
         addScan('진상 #1 — 2003.10.17 새벽, 경리부 사원이 비상계단에서 추락사. 회사는 은폐를 결재했다');
         doneGoal('g_f8');
+        await sayQueue([
+          ['시스템','— 그 순간, 복도 저쪽에서 딩. 엘리베이터가 저 혼자 울렸다.'],
+          ['우진','…다음 층이 열렸다는 소리겠지. 첫 번째 서류를 찾았으니까.'],
+        ]);
+        addGoal('g_next_b2','새로 열린 층으로 간다 (B2)');
       }},
     },
     { id:'ceodesk', name:'대표 책상', rect:[200,250,280,60], verb:'뒤진다',
@@ -2073,7 +2111,9 @@ ROOMS.parking = {
   exits:[
     { rect:[852,180,70,200], to:'security', label:'경비실' },
     { rect:[0,180,30,230], to:'archive', label:'문서고' },
-    { rect:[160,392,160,40], to:'incinerator', label:'폐기실 (내리막)' },
+    { rect:[160,392,160,40], to:'incinerator', label:'폐기실 (내리막)',
+      locked:()=>!has('master_key'),
+      lockedMsg:'내리막 끝의 철문이 잠겨 있다. 관리 구역 — 경비실 담당이다. 경비실부터 가 보자.' },
   ],
   async onEnter(first){ if(first) await say('지하 2층. 콘크리트의 냉기가 발밑에서 올라온다. "아래층은 춥다" — 정말로 춥다.','시스템'); },
 };
@@ -2124,6 +2164,7 @@ ROOMS.security = {
           ['조씨','그날 새벽에 내가 신고했어요. 회사는 "그런 직원 없다"고 했고. 다음 주에 저 테이프만 남고 다 사라졌지.'],
         ]);
         addScan('진상 #2 — 그녀는 자신이 포함된 구조조정 명단을 만들며 사흘 철야, 4:44 비상계단에서 추락');
+        await afterB2Check();
       }},
     },
     { id:'charm_wall', name:'벽의 부적', rect:[795,130,60,95], verb:'살펴본다',
@@ -2254,6 +2295,7 @@ ROOMS.archive = {
         addScan('진상 #3 — 그녀의 이름은 한세영. 사번 970414. 인사기록은 "말소" 처리됐다');
         doneGoal('g_jo'); doneGoal('g_b2');
         await crisis('c2');
+        if(flag('c2_done')) await maybeJoCall();
       } },
   ],
   exits:[ { rect:[880,180,60,200], to:'parking', label:'주차장', side:'right' } ],
@@ -2290,7 +2332,11 @@ ROOMS.incinerator = {
           ['우진','아무도 못 태웠네. 20년 동안. 태우는 손이 다 무서웠던 거겠지. 잘했어, 모두들.'],
         ]);
         give('keepsake_key'); give('mug_her',true); give('photo_her',true);
-        addScan('폐기실의 유품 상자 — 그녀의 책상 서랍 열쇠. 서랍은 아마 4층에');
+        await say(flag('tape_seen')
+          ? '작은 열쇠는 책상 서랍용이다. 그녀의 책상 — 테이프 속 그 층, 옛 경리부 어딘가에 있겠지.'
+          : '작은 열쇠는 책상 서랍용이다. 주인의 책상이 이 건물 어딘가에 아직 있다는 뜻이다.');
+        addScan('폐기실의 유품 상자 — 그녀의 책상 서랍 열쇠');
+        await afterB2Check();
       }},
     },
     { id:'boxes', name:'다른 폐기 상자들', rect:[150,290,180,80], verb:'뒤진다',
@@ -2347,7 +2393,8 @@ ROOMS.hall4 = {
   ],
   async onEnter(first){ if(first) await sayQueue([
     ['시스템','4층. 엘리베이터 문이 열리는 순간부터 공기가 다르다. 낡고, 조용하고 — 슬프다.'],
-    ['우진','여기가 옛날 경리부. 그리고 아마, 이 밤의 중심.'],
+    ['우진','…이 복도, 테이프에서 봤다. 그녀가 서류 상자를 안고 비틀비틀 걷던 바로 그 복도다.'],
+    ['우진','20년 전 그 새벽이 여기서 시작됐다. 그리고 아직, 안 끝났고.'],
   ]); },
 };
 
@@ -2479,14 +2526,9 @@ ROOMS.server4 = {
         addScan('진상 #4 — 그녀의 타임카드: 출근 04:44, 퇴근 공란. 그녀는 아직 "퇴근 전"이다');
         if(!flag('sj_shoulder')){ setFlag('sj_shoulder');
           scareJump('silhouette1f');
-          await sayQueue([
-            ['시스템','카드를 든 순간 — 어깨 위에 손. 차갑지 않다. 확인하듯, 고맙다는 듯, 한 번 꼭. 그리고 사라졌다.'],
-            ['시스템','— 그때 벽의 인터폰이 저 혼자 지직거렸다.'],
-            ['조씨','…봤어요? 방금 건물 전체 전등이 한 번 숨을 쉬었어. 세 장 다 모은 거지?'],
-            ['조씨','그럼 이제 그 애한테 가요. 비상계단으로. 잘 들어요 — 5층에서 4층으로, 스물두 계단하고 "반". 반 계단에서 멈춰야 해. 세는 걸 틀리면 안 돼요.'],
-            ['우진','…알았어요. 스물두 계단하고 반.'],
-          ]); }
-        addGoal('g_stair2','비상계단, 스물두 계단 반 — 그녀에게 간다');
+          await say('카드를 든 순간 — 어깨 위에 손. 차갑지 않다. 확인하듯, 고맙다는 듯, 한 번 꼭. 그리고 사라졌다.','시스템'); }
+        await maybeJoCall();
+        if(docCount()<3) await say('이제 남은 건 문서고의 기록. 분류코드는 알고 있다.');
       },
       useItem:{
         fuse2: ()=>{ if(flag('p_fuse')) return say('퓨즈는 넣었다.'); take('fuse2'); setFlag('p_fuse');
@@ -2788,23 +2830,23 @@ SOLUTION = [
     assert:()=>has('safe_key') && has('thermal_roll') },
   { d:'대표실 → C3 통과', run:async()=>{ await TEST.exit('hall8'); TEST.exit('ceo'); await TEST.choose(0); }, assert:()=>flag('c3_done') },
   { d:'금고 → 경위서', run:()=>TEST.useItem('safe_key','safe8'), assert:()=>has('doc1') },
-  { d:'엘베→B2', run:async()=>{ await TEST.exit('hall8'); TEST.click('elev8'); await TEST.choose(3); }, assert:()=>G.room==='parking' },
+  { d:'엘베→B2', run:async()=>{ await TEST.exit('hall8'); TEST.click('elev8'); await TEST.choose(2); }, assert:()=>G.room==='parking' },
   { d:'경비실 조씨', run:async()=>{ await TEST.exit('security'); await TEST.click('jo'); },
     assert:()=>flag('met_jo') && has('master_key') && has('tape_cctv') },
   { d:'CCTV 테이프', run:()=>TEST.useItem('tape_cctv','cctv'), assert:()=>flag('tape_seen') },
   { d:'부적', run:()=>TEST.click('charm_wall'), assert:()=>has('charm') },
   { d:'폐기실 유품 상자', run:async()=>{ await TEST.exit('parking'); await TEST.exit('incinerator'); await TEST.useItem('cutter','box2003'); },
     assert:()=>has('keepsake_key') },
-  { d:'엘베→4층', run:async()=>{ await TEST.exit('parking'); TEST.click('elevB'); await TEST.choose(2); }, assert:()=>G.room==='hall4' },
+  { d:'엘베→4층', run:async()=>{ await TEST.exit('parking'); TEST.click('elevB'); await TEST.choose(3); }, assert:()=>G.room==='hall4' },
   { d:'경리부: 장부 코드', run:async()=>{ await TEST.exit('accounting'); await TEST.click('ledger'); }, assert:()=>flag('code_known') },
   { d:'그녀의 서랍 → 일기', run:()=>TEST.useItem('keepsake_key','herdesk'), assert:()=>has('diary') },
   { d:'창고: 마네킹+퓨즈', run:async()=>{ await TEST.exit('hall4'); await TEST.exit('storage4'); await TEST.click('mannequin'); await TEST.click('toolbox4'); },
     assert:()=>has('fuse2') },
-  { d:'B2 문서고 개방', run:async()=>{ await TEST.exit('hall4'); TEST.click('elev4'); await TEST.choose(3); await TEST.exit('archive'); await TEST.useItem('master_key','arch_door'); },
+  { d:'B2 문서고 개방', run:async()=>{ await TEST.exit('hall4'); TEST.click('elev4'); await TEST.choose(2); await TEST.exit('archive'); await TEST.useItem('master_key','arch_door'); },
     assert:()=>flag('archive_open') },
   { d:'서가 검색 → C2 통과 → 인사카드', run:async()=>{ TEST.click('shelves'); await TEST.choose(0); await TEST.choose(0); },
     assert:()=>flag('c2_done') && has('doc2') },
-  { d:'엘베→4층 전산실', run:async()=>{ await TEST.exit('parking'); TEST.click('elevB'); await TEST.choose(2); await TEST.exit('server4'); } },
+  { d:'엘베→4층 전산실', run:async()=>{ await TEST.exit('parking'); TEST.click('elevB'); await TEST.choose(3); await TEST.exit('server4'); } },
   { d:'기록기 수리', run:async()=>{ await TEST.useItem('fuse2','puncher'); await TEST.useItem('thermal_roll','puncher'); },
     assert:()=>flag('printer_fixed') },
   { d:'타임카드 (3/3)', run:()=>TEST.click('puncher'), assert:()=>docCount()===3 },
