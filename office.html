@@ -777,7 +777,13 @@ function renderInv(){
     const it=ITEMS[id];
     const slot=document.createElement('div');
     slot.className='islot'+(G.selItem===id?' sel':'');
-    slot.title=it.name;
+    // 즉시 표시 툴팁 (OS title 지연 없이)
+    slot.addEventListener('mouseenter', ()=>{
+      const sr=slot.getBoundingClientRect(), scr=scaler.getBoundingClientRect();
+      const s=scr.width/960;
+      showLabel(it.name, (sr.left-scr.left)/s-12, (sr.top-scr.top)/s-46);
+    });
+    slot.addEventListener('mouseleave', hideLabel);
     const c=document.createElement('canvas'); c.width=36; c.height=36;
     const ic=c.getContext('2d');
     if(it.draw) it.draw(ic,36);
@@ -1270,7 +1276,9 @@ DIALOGS.elevator = {
     { text:'7층 (사무실)', cond:()=>flag('act2_open'), next:null, action:()=>{ if(G.room!=='hall7'){ sfx('door'); goto('hall7'); } else say('여기가 7층이다. 버튼이 나를 비웃는 것 같다.'); } },
     { text:'8층 (임원실)', cond:()=>flag('act2_open'), next:null, action:()=>{ if(G.room!=='hall8'){ sfx('door'); goto('hall8'); } else say('여기가 8층이다.'); } },
     { text:'4층 (구관)', cond:()=>flag('act2_open'), next:null, action:()=>{ if(G.room!=='hall4'){ sfx('door'); goto('hall4'); } else say('여기가 4층이다.'); } },
-    { text:'B2 (주차장)', cond:()=>flag('act2_open'), next:null, action:()=>{ if(G.room!=='parking'){ sfx('door'); goto('parking'); } else say('여기가 B2다.'); } },
+    { text:'B2 (주차장)', cond:()=>flag('act2_open'), next:null, action:()=>{
+        if(!flag('cmo_called')){ say('B2 버튼을 눌렀다. 불이 세 번 깜빡이더니 도로 꺼졌다. …아직 거긴 순서가 아니라는 뜻인가.','시스템'); return; }
+        if(G.room!=='parking'){ sfx('door'); goto('parking'); } else say('여기가 B2다.'); } },
     { text:'(내린다)', next:null },
   ],
 };
@@ -1315,7 +1323,7 @@ DIALOGS.ip_lore = {
   speaker:'조씨',
   text:()=>{
     if(flag('doc3_got')) return '그 애는 나쁜 애가 아니야. 20년 동안 아무도 못 보내줬을 뿐이지. …당신이 처음이야, 여기까지 온 사람은.';
-    if(flag('met_jo')) return '새벽 4시 44분에 이 건물은 그 애 거야. 우리는 잠깐 빌려 쓰는 거고. 예의만 지키면 돼요. 비상계단 스티커 봤죠? 뛰지 말 것, 돌아보지 말 것, 이름을 부르지 말 것. …그거 내가 붙인 거요.';
+    if(flag('met_jo')) return '새벽 4시 44분에 이 건물은 그 애 거야. 우리는 잠깐 빌려 쓰는 거고. 예의만 지키면 돼요. 비상계단 스티커 봤죠? 뛰지 말 것, 돌아보지 말 것, 말을 걸지 말 것. …그거 내가 붙인 거요.';
     return '…시계가 멈췄다고? 그럼 오늘이 그 밤이구먼. 잘 들어요. 이 건물엔, 우리 말고도 야근하는 사람이 하나 더 있어요. 아주 오래된 야근이. 퇴근을 못 해서.';
   },
   next:null,
@@ -1516,7 +1524,9 @@ ROOMS.office7 = {
         else await say('…다시는 안 본다. 유리도, 유리에 비치는 것도.');
       } },
   ],
-  exits:[ { rect:[880,180,60,200], to:'hall7', label:'복도', side:'right' } ],
+  exits:[ { rect:[880,180,60,200], to:'hall7', label:'복도', side:'right',
+    locked:()=>!flag('p_sent'),
+    lockedMsg:'보고서. 보고서부터. 지금 자리를 뜨면 아침의 내가 오늘 밤의 나를 평생 원망한다.' } ],
   async onEnter(first){
     if(first) await say('7층 사무실. 내 왕국이자 내 감옥. 오늘 밤은 후자에 가깝다.','시스템');
   },
@@ -1719,7 +1729,7 @@ DIALOGS.c1 = {
   speaker:'시스템',
   lines:[
     ['시스템','문이 열렸다. 계단실의 공기는 겨울 새벽 같다. "아래층은 춥다" — 그 글씨가 떠오른다.'],
-    ['시스템','문 안쪽에 빛바랜 스티커가 붙어 있다. 손글씨다. — "계단에서는: 뛰지 말 것. 돌아보지 말 것. 이름을 부르지 말 것."'],
+    ['시스템','문 안쪽에 빛바랜 스티커가 붙어 있다. 손글씨다. — "계단에서는: 뛰지 말 것. 돌아보지 말 것. 말을 걸지 말 것."'],
     ['우진','(안전수칙치고는… 이상한 수칙인데. 셋 다 "계단 조심"이 아니라 "누구 조심" 같잖아.)'],
     ['시스템','그때 — 위층에서. 또각. 또각. 구두 소리. 한 칸씩, 서두르지 않고, 내려온다.'],
     ['우진','(경비 아저씨? 아니다. 경비실은 지하다. 위에는… 위에는 아무도 없어야 한다.)'],
@@ -1732,7 +1742,7 @@ DIALOGS.c1 = {
       ['시스템','"뛰지 말 것." — 스티커의 첫 줄이 마지막으로 떠올랐다.']]) },
     { text:'"누, 누구세요?" 하고 외친다', next:null, action:()=>markDeath('eyes',[
       ['시스템','구두 소리가 멎었다. 그리고 아주 가까운 곳에서, 대답 대신 — 숨소리.'],
-      ['시스템','"이름을 부르지 말 것." — 셋째 줄을 지키지 않았다.']]) },
+      ['시스템','"말을 걸지 말 것." — 셋째 줄을 지키지 않았다.']]) },
   ],
 };
 DIALOGS.c1_pass = {
@@ -1920,7 +1930,7 @@ ROOMS.ceo = {
   draw(ctx,t){
     roomBase('#100e0c',395);
     cityWindow(600,70,320,190,71,t);
-    frect(160,290,300,20,'#0e0c14'); nrect(160,290,300,20,P.gold,1.5,6); // 대형 책상
+    frect(200,290,280,20,'#0e0c14'); nrect(200,290,280,20,P.gold,1.5,6); // 대형 책상 (거울과 간격)
     nrect(560,300,140,80,'rgba(124,137,184,.35)',1.5,4); ntext('소파',630,295,P.dim,9);
     // 전신 거울
     nrect(80,120,90,240,P.cyan,2,10);
@@ -1954,7 +1964,7 @@ ROOMS.ceo = {
         doneGoal('g_f8');
       }},
     },
-    { id:'ceodesk', name:'대표 책상', rect:[160,250,300,60], verb:'뒤진다',
+    { id:'ceodesk', name:'대표 책상', rect:[200,250,280,60], verb:'뒤진다',
       look:()=>say('결재판이 산이다. 맨 위 서류: "거북특급 인수 건 — 시너지 검토". …어디서 많이 들어본 회사인데.'),
       use:async()=>{ await say('서랍에서 결재 완료 서류 하나. "소아온호 사건 유족 보상 — 최소 기준 적용". 이 회사, 우주에서도 이러는구나.');
         addScan('이스터에그: 소아온호 보상 서류 — 헬리오스는 어디서나 헬리오스다'); } },
@@ -2080,8 +2090,8 @@ ROOMS.security = {
     }
     ntext('CCTV — 8채널',400,95,P.dim,10);
     frect(200,330,300,14,'#0b1122'); nrect(200,330,300,14,P.dim,1.5,4); // 책상
-    // 조씨 (앉아 있는 사람!)
-    ctx.save(); ctx.translate(620,300);
+    // 조씨 (앉아 있는 사람 — 모니터 벽 오른쪽 옆)
+    ctx.save(); ctx.translate(725,300);
     ncirc(0,-40,20,'rgba(216,226,255,.7)',false,4);
     poly([[-24,-18],[24,-18],[30,50],[-30,50]],'rgba(124,137,184,.6)',false,2,4);
     ntext('조씨',0,75,P.amber,10);
@@ -2091,7 +2101,7 @@ ROOMS.security = {
     clock444(90,110);
   },
   hotspots:[
-    { id:'jo', name:'경비원 조씨', rect:[580,240,90,130], verb:'말을 건다',
+    { id:'jo', name:'경비원 조씨', rect:[685,240,90,130], verb:'말을 건다',
       look:()=>say('야간 경비 조씨. 이 새벽에 살아 있는 사람을 보니 눈물이 날 뻔했다. 살아 있는 거 맞겠지.'),
       use:()=>dialog(flag('met_jo')?'jo_talk':'jo_first') },
     { id:'cctv', name:'CCTV 모니터', rect:[140,110,510,180], verb:'확인한다',
